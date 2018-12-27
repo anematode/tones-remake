@@ -1,0 +1,150 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+
+\usepackage{pgfplots}
+
+\begin{document}
+
+\title{TONES Automation}
+
+\author{anematode}
+
+\maketitle
+
+\section{Who is this intended for?}
+
+It's intended for me. I might read this in a few months because I didn't know what the hell I was doing. Thus, it's written in a somewhat understandable way, but it won't try to explain ideas that aren't a product of this project.
+
+\section{What is Automation?}
+
+Automation should be an abstraction of the mapping from a beat number, $b$, to a value of a certain parameter, $p$. In other words, it tells us what the value of a parameter is at some point in beat space (not in \textit{time}, per se, because that is tempo-dependent.) This is very important in the course of modulating parameters to go with the music, and therefore this part of TONES must be well made, fast, sufficiently generalized, and amenable to easy conversion into Web Audio API format. There will definitely be a disconnect between the mathematical description of automation and its actual implementation, but the former should serve as a helpful guidance.
+
+\section{The Distilled Automation Model}
+
+Define a function $f:\mathbb{R}_{\geq 0}\to \mathbb{R}$, which takes in the time in beats since the start of the automation and outputs the value of the parameter at that beat. $f$ need not be continuous; parameters should be able to change instantaneously (in Web Audio, this will correspond to an instant change between two samples). We model this function as a series of $n$ disjoint (apart from their endpoints) segments $s_1, s_2, \cdots, s_n$ covering $[0, l]$, where $l$ is the length of the automation. The boundaries of these segments are $x_1, x_2, \cdots, x_{n+1}\in \mathbb{R}_{\geq 0}$, so the boundaries of segment $s_i$ are $x_i$ and $x_{i+1}$. Note that $x_1 = 0$ and $x_{n+1}=l$. We should think of these segments as functions; the domain of $s_i$ is $[x_i, x_{i+1}]$, and we define $f$ as the piecewise
+
+$$f(b) = \begin{cases}
+s_1(b), x_1 \leq b < x_2 \\
+s_2(b), x_2 \leq b < x_3 \\
+\cdots \\
+s_n(b), x_n \leq b < x_{n+1} \\
+s_n(x_{n+1}), x_{n+1} \leq b
+\end{cases}.$$
+
+Note that we use $\leq$ for the lower bound and $<$ for the upper bound. This is important in the context of instantaneous changes, which are modeled as segments of length $0$. Furthermore, all $b$ greater than the last separator, $x_{n+1}$, have $f(b) = s_n(x_{n+1})$; in essence, the last otherwise-defined value of $f$. The complete description of $f$ is given by the separators $x_i$, the functions $s_i$, and the number of segments $n$; the separators effectively restrict the domains of $s_i$.
+
+Derived properties of $f(b)$, which will prove useful:
+
+$Dom(f)=[0,\infty)$
+
+$l:=x_{n+1}$, the length of the automation
+
+$pmax:=\max (f)$, the maximum value $f$ attains (more precisely/correctly, the supremum of the image of $f$, because there are cases where $pmax\neq f(a)$ for any $a$ due to a discontinuity)
+
+$pmin:=\min (f)$, the minimum value $f$ attains (more precisely/correctly, the infimum of the image of $f$, because there are cases where $pmin\neq f(a)$ for any $a$ due to a discontinuity)
+
+$Rng(f) \subseteq [pmin, pmax]$. Note that the range can be equal to this interval, or the same interval with open boundaries, or even with gaps in the middle (due to discontinuities).
+
+$derivative(x) := f'(x)$, the derivative of $f$, with domain $Dom(derivative) \subseteq [0, \inf) \backslash \{x_i\} $. Note that $f'(x)$ is undefined if and only if $x\in x_i$ (and $f$ is non-differentiable at $x_i$ because $1<i\leq n \land \lim_{x\to x_i^+} s_{i-1}'(x)\neq \lim_{x\to x_i^-} s_{i}'(x)$ or $i = n+1\land \lim_{x\to x_{n+1}^+} s_n'(x) \neq 0$)
+
+$integral(x) := \int_{0}^{x} f(x) dx$, the definite integral of $f$ from $0$ to $x$, with domain $[0, \inf)$. Because $f$ is defined for all $x\geq 0$, this function should be defined for all $x\geq 0$ as well by the Fundamental Theorem of Calculus
+
+$timeIntegral(x) := \int_{0}^{x} \frac{1}{f(x)} dx$, the definite integral of $1/f$ from $0$ to $x$. This integral should exist iff $pmin>0$, otherwise it's nonsensical for its intended purpose: tempo automations.
+
+Let's see how we'd define an actual automation that highlights some of these properties of $f$.
+
+\tikzset{
+  jumpdot/.style={mark=*,solid},
+  excl/.append style={jumpdot,fill=white},
+  incl/.append style={jumpdot,fill=black},
+}
+
+\begin{tikzpicture}
+  \begin{axis}[ 
+    xlabel=$b$,
+    ylabel={$f(b)$}
+  ] 
+    \addplot[domain=0:1] {0};
+    \addplot[domain=1:2] {x-1};
+    \addplot[domain=2:3] {x-2};
+    \addplot[domain=3:4] {-x+4};
+    \addplot[excl] coordinates {(2, 1)};
+    \addplot[incl] coordinates {(2, 0)};
+    \addplot[excl] coordinates {(4, 0)};
+    \addplot[incl] coordinates {(4, 1)};
+    
+  \end{axis}
+\end{tikzpicture}
+
+Obviously, automations will also have non-linear segments, but this is for simplicity. We have $l=4$, $n=5$, $x_i={0, 1, 2, 3, 4, 4}$, and
+
+$$s_i = \{0, x-1, x-2, -x+4, 1\}.$$
+
+Here are some values of $f$, the derivative, and the integral, spaced evenly from $0$ to $5$:
+
+$$f(0) = s_1(0) = 0; integral(0) = 0; derivative(0) = 0$$ [Note that the derivative is defined at $0$ because $\lim_{x\to 0^+} f(x) = 0$]
+$$f(.5) = s_1(.5) = 0; integral(.5) = 0; derivative(.5) = 0$$
+$$f(1) = s_2(1) = 0; integral(1) = 0; derivative(1) = \text{undef}$$ [$f$ is continuous, but non-differentiable, at $1$]
+$$f(1.5) = s_2(1.5) = 0.5; integral(1.5) = 0.125; derivative(1.5) = 1$$
+$$f(2) = s_3(2) = 0; integral(2) = 0.5; derivative(2) = \text{undef}$$
+$$f(2.5) = s_3(2.5) = 0.5; integral(2.5) = 0.625; derivative(2.5) = 1$$
+$$f(3) = s_4(3) = 1; integral(3) = 1; derivative(3) = \text{undef}$$
+$$f(3.5) = s_4(3.5) = 0.5; integral(3.5) = 1.375; derivative(3.5) = -1$$
+$$f(4) = s_5(4) = 1; integral(4) = 1.5; derivative(4) = \text{undef}$$
+$$f(4.5) = s_5(4) = 1; integral(4.5) = 2; derivative(4.5) = 0$$
+$$f(5) = s_5(4) = 1; integral(5) = 2.5; derivative(5) = 0.$$
+
+For the case where an instantaneous change occurs in the middle of an automation, note that in this case we would have two consecutive and equal $x_i$: $x_j = x_{j+1}$ for $j<n$. Then, the corresponding segment will have no $x$ values corresponding to it in the piecewise, including $x=x_j$! That's because the domain of $s_j$ will be $x_j \leq x < x_{j+1}$, which has no solutions; instead $x=x_j$ will fall in segment $s_{j+1}$ because that has domain $x_{j+1} \leq x < x_{j+2}$. This is desirable behavior: instantaneous changes will have no effect in the middle of an automation, but they will signal a change in a parameter right at the end of an automation if necessary. This is useful for resetting parameters quickly, for example.
+
+In summary, we can define an mapping $f:\mathbb{R}_{\geq 0}\to \mathbb{R}$ taking in a beat time $b$ and spitting out the value of a parameter at that time, uniquely defined by $n>0$ (number of segments), $s_1, ..., s_n$ (segment functions), and $x_1, \cdots, x_{n+1}$ (domain separators), with certain consequent properties. The rest of this document is about the actual implementation.
+
+\section{AutomationSegment}
+
+A parent, abstract class which all the segment functions will be based on.
+
+Properties:
+
+$x1$: starting x value ($\geq 0$)
+
+$x2$: ending x value ($\geq x1$)
+
+$y1$: starting y value
+
+$y2$: ending y value
+
+Functions:
+
+constructor(x1, y1, x2, y2): class constructor, rejecting x2 < x1
+
+length(): returns x2 - x1
+
+deltaY(): returns y2 - y1
+
+Children should implement:
+
+ymin(): minimum of the segment over the range [x1, x2].
+
+ymax(): maximum of the segment over the range [x1, x2].
+
+valueAt(x): returning the value of the segment at beat x. Only has to be valid for the domain [x1, x2], but it can be continued to other values if that makes things easier.
+
+derivativeAt(x): returning the value of the derivative at beat x. Similarly, only has to be valid for [x1, x2].
+
+integralAt(x): returning the value of $$\int_{x1}^x s(x) dx$$; only has to be valid for [x1, x2].
+
+timeIntegral(x): returning the value of $$\int_{x1}^x \frac{1}{s(x)} dx$$; only has to be valid for [x1, x2] and if ymin() > 0.
+
+translateX(x): translate the segment left or right by x units
+
+translateY(y): translate the segment up or down by y units
+
+scaleX(x): scale the segment \textbf{relative to 0} in the x-axis
+
+scaleY(y): scale the segment \textbf{relative to 0} in the y-axis
+
+%snip(a, b): return a new segment between a and b with the same values as this segment
+
+\end{document}
