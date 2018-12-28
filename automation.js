@@ -24,12 +24,78 @@ class AutomationSegment {
     }
 }
 
+class ConstantAutomationSegment extends AutomationSegment {
+    constructor(x1, x2, c) {
+        super(x1, c, x2, c);
+        this.c = c;
+    }
+
+    ymin() {
+        return this.c;
+    }
+
+    ymax() {
+        return this.c;
+    }
+
+    valueAt(x) {
+        return this.c;
+    }
+
+    derivativeAt(x) {
+        return 0;
+    }
+
+    integralAt(x) {
+        return this.c * (x - this.x1);
+    }
+
+    timeIntegral(x) {
+        this._timeIntegralCheck();
+
+        return (x - this.x1) / this.c;
+    }
+
+    translateX(x) {
+        this.x1 += x;
+        this.x2 += x;
+    }
+
+    translateY(y) {
+        this.y1 += y;
+        this.y2 += y;
+    }
+
+    scaleX(x) {
+        this.x1 *= x;
+        this.x2 *= x;
+
+        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
+            let tmp = this.x2;
+
+            this.x2 = this.x1;
+            this.x1 = tmp;
+        }
+    }
+
+    scaleY(y) {
+        this.y1 *= y;
+        this.y2 *= y;
+    }
+
+    clone() {
+        return new ConstantAutomationSegment(this.x1, this.x2, this.c);
+    }
+}
+
 const linearAutomationTimeIntegralEps = 1e-9;
 
 // Note: this.derivativeAt(0) is just an easy way to get the slope
 class LinearAutomationSegment extends AutomationSegment {
-    constructor(...args) {
-        super(...args);
+    constructor(x1, y1, x2, y2) {
+        if (x2 === x1)
+            throw new Error("LinearAutomationSegment can't have two identical x boundaries.");
+        super(x1, y1, x2, y2);
     }
 
     ymin() {
@@ -54,6 +120,8 @@ class LinearAutomationSegment extends AutomationSegment {
     }
 
     timeIntegral(x) {
+        this._timeIntegralCheck();
+
         let m = this.derivativeAt();
         if (Math.abs(m) < linearAutomationTimeIntegralEps) {
             return (x - this.x1) / this.y1;
@@ -73,8 +141,23 @@ class LinearAutomationSegment extends AutomationSegment {
     }
 
     scaleX(x) {
+        if (x === 0)
+            throw new Error("Can't scale by a factor of 0");
+
         this.x1 *= x;
         this.x2 *= x;
+
+        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
+            let tmp = this.x2;
+
+            this.x2 = this.x1;
+            this.x1 = tmp;
+            tmp = this.y2;
+            this.y2 = this.y1;
+            this.y1 = tmp;
+        } else if (this.x2 === this.x1) {
+            throw new Error("Scaling resulted in the collapsing of the LinearAutomationSegment due to float imprecision.");
+        }
     }
 
     scaleY(y) {
@@ -86,3 +169,5 @@ class LinearAutomationSegment extends AutomationSegment {
         return new LinearAutomationSegment(this.x1, this.y1, this.x2, this.y2);
     }
 }
+
+let seg = new LinearAutomationSegment(0, 60, 5, 120);

@@ -149,13 +149,53 @@ clone(): clone the segment
 
 %snip(a, b): return a new segment between a and b with the same values as this segment
 
+\section{ConstantAutomationSegment}
+
+Child of Automation Segment
+
+A constant between $x_1, c$ and $x_2, c$.
+
+Properties (besides parent's):
+
+c: the value of the constant parameter
+
+Functions:
+
+constructor($x_1$, $x_2$, c): calls super($x_1$, c, $x_2$, c)
+
+ymin: c
+
+ymax: c
+
+valueAt(x): c
+
+derivativeAt(x): 0
+
+integralAt(x): $c(x-x_1)$
+
+timeIntegral(x): $(x-x_1)/c$
+
+translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
+
+translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$
+
+scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if necessary
+
+scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$
+
+clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2$.
+
 \section{LinearAutomationSegment}
 
 Child of Automation Segment.
 
 Simple linear interpolation between $(x_1, y_1)$ and $(x_2, y_2)$, which also works for constant values if $y_1=y_2$.
 
-constructor(...args): just calls super(...args)
+No extra properties.
+
+Functions:
+
+constructor(...args): rejects $x_2 = x_1$, then calls super(...args)
 
 ymin: $\min\{y_1, y_2\}$
 
@@ -190,13 +230,11 @@ translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
 
 translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$
 
-scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$
+scaleX(x): reject $x=0$; $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if necessary
 
 scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$
 
 clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2$.
-
-
 
 
 \end{document}
