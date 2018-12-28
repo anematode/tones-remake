@@ -38,11 +38,11 @@ class ConstantAutomationSegment extends AutomationSegment {
         return this.c;
     }
 
-    valueAt(x) {
+    valueAt() {
         return this.c;
     }
 
-    derivativeAt(x) {
+    static derivativeAt() {
         return 0;
     }
 
@@ -110,7 +110,7 @@ class LinearAutomationSegment extends AutomationSegment {
         return (x - this.x1) * this.derivativeAt() + this.y1;
     }
 
-    derivativeAt(x) {
+    derivativeAt() {
         return (this.y2 - this.y1) / (this.x2 - this.x1);
     }
 
@@ -170,4 +170,91 @@ class LinearAutomationSegment extends AutomationSegment {
     }
 }
 
-let seg = new LinearAutomationSegment(0, 60, 5, 120);
+const exponentialAutomationEps = 10e-9;
+
+class ExponentialAutomationSegment extends AutomationSegment {
+    constructor(x1, y1, x2, y2, yc) {
+        if (x2 === x1)
+            throw new Error("LinearAutomationSegment can't have two identical x boundaries.");
+        super(x1, y1, x2, y2);
+
+        if (yc <= this.ymin() || yc >= this.ymax())
+            throw new Error("yc out of bounds");
+
+        this.yc = yc;
+    }
+
+    ymin() {
+        return Math.min(this.y1, this.y2);
+    }
+
+    ymax() {
+        return Math.max(this.y1, this.y2);
+    }
+
+    valueAt(x) {
+        let ycp = (this.yc - this.y1) / (this.y2 - this.y1);
+
+        if (Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+            return (x - this.x1) * (this.y2 - this.y1) / (this.x2 - this.x1) + this.y1
+        } else {
+            return ycp * ycp / (1 - 2 * ycp) *
+                (Math.pow(1 / ycp - 1, 2 * (x - this.x1) / (this.x2 - this.x1)) - 1) *
+                (this.y2 - this.y1) + this.y1;
+        }
+    }
+
+    derivativeAt(x) {
+        let ycp = (this.yc - this.y1) / (this.y2 - this.y1);
+
+        if (Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+            return (this.y2 - this.y1) / (this.x2 - this.x1);
+        } else {
+            let rycp = 1/ycp - 1;
+            let xd = this.x2 - this.x1;
+
+            return 2 * ycp * ycp / (1 - 2 * ycp) * (this.y2 - this.y1) / xd *
+                Math.log(rycp) * Math.pow(rycp, 2 * (x - this.x1) / xd);
+        }
+    }
+
+    integralAt(x) {
+        let ycp = (this.yc - this.y1) / (this.y2 - this.y1);
+
+        if (Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+            let xd = x - this.x1;
+            return this.y1 * xd + (this.y2 - this.y1) / (this.x2 - this.x1) * xd * xd / 2;
+        } else {
+            let rycp = 1/ycp - 1;
+            let xd = this.x2 - this.x1;
+
+            return this.y1 * (x - this.x1) + ycp * ycp / (1 - 2 * ycp) * (this.y2 - this.y1) * (this.x1 - x +
+                (xd * (Math.pow(rycp, 2 * (x - this.x1) / xd) - 1)) /
+                (2 * Math.log(rycp)));
+        }
+    }
+
+    timeIntegral(x) {
+        let ycp = (this.yc - this.y1) / (this.y2 - this.y1);
+
+        if (Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+            let m = (this.y2 - this.y1) / (this.x2 - this.x1);
+
+            if (m === 0) {
+                return (x - this.x1) / this.y1;
+            } else {
+                return (Math.log(m * (x - this.x1) + this.y1) - Math.log(this.y1)) / m;
+            }
+        } else {
+            let a = ycp * ycp / (1 - 2 * ycp) * (this.y2 - this.y1), b = this.y1;
+            let rycp = 1 / ycp - 1;
+            let log_v = 2 * Math.log(rycp) / (this.x2 - this.x1);
+
+            rycp *= rycp;
+
+            return (Math.log((a * (Math.pow(rycp, (x - this.x1) / (this.x2 - this.x1)) - 1) + b) / b) - (x - this.x1) * log_v) / ((a - b) * log_v)
+        }
+    }
+}
+
+let seg = new ExponentialAutomationSegment(1, 60, 5, 120, 90);
