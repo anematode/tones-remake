@@ -107,44 +107,96 @@ A parent, abstract class which all the segment functions will be based on.
 
 Properties:
 
-$x1$: starting x value ($\geq 0$)
+$x_1$: starting x value ($\geq 0$)
 
-$x2$: ending x value ($\geq x1$)
+$x_2$: ending x value ($\geq x_1$)
 
-$y1$: starting y value
+$y_1$: starting y value
 
-$y2$: ending y value
+$y_2$: ending y value
 
 Functions:
 
-constructor(x1, y1, x2, y2): class constructor, rejecting x2 < x1
+constructor($x_1$, $y_1$, $x_2$, $y_2$): class constructor, rejecting $x_2 < x_1$
 
-length(): returns x2 - x1
+length(): returns $x_2 - x_1$
 
-deltaY(): returns y2 - y1
+deltaY(): returns $y_2 - y_1$
 
 Children should implement:
 
-ymin(): minimum of the segment over the range [x1, x2].
+ymin(): minimum of the segment over the range $[x_1, x_2]$.
 
-ymax(): maximum of the segment over the range [x1, x2].
+ymax(): maximum of the segment over the range $[x_1, x_2]$.
 
-valueAt(x): returning the value of the segment at beat x. Only has to be valid for the domain [x1, x2], but it can be continued to other values if that makes things easier.
+valueAt(x): returning the value of the segment at beat x. Only has to be valid for the domain $[x_1, x_2]$, but it can be continued to other values if that makes things easier.
 
-derivativeAt(x): returning the value of the derivative at beat x. Similarly, only has to be valid for [x1, x2].
+derivativeAt(x): returning the value of the derivative at beat x. Similarly, only has to be valid for $[x_1, x_2]$.
 
-integralAt(x): returning the value of $$\int_{x1}^x s(x) dx$$; only has to be valid for [x1, x2].
+integralAt(x): returning the value of $$\int_{x_1}^x s(x) dx;$$ only has to be valid for $[x_1, x_2]$.
 
-timeIntegral(x): returning the value of $$\int_{x1}^x \frac{1}{s(x)} dx$$; only has to be valid for [x1, x2] and if ymin() > 0.
+timeIntegral(x): returning the value of $$\int_{x_1}^x \frac{1}{s(x)} dx;$$ only has to be valid for $[x_1, x_2]$ and if ymin() $>$ 0.
 
-translateX(x): translate the segment left or right by x units
+translateX(x): translate the segment left or right by x units and return itself
 
-translateY(y): translate the segment up or down by y units
+translateY(y): translate the segment up or down by y units and return itself
 
-scaleX(x): scale the segment \textbf{relative to 0} in the x-axis
+scaleX(x): scale the segment \textbf{relative to 0} in the x-axis and return itself
 
-scaleY(y): scale the segment \textbf{relative to 0} in the y-axis
+scaleY(y): scale the segment \textbf{relative to 0} in the y-axis and return itself
+
+clone(): clone the segment
 
 %snip(a, b): return a new segment between a and b with the same values as this segment
+
+\section{LinearAutomationSegment}
+
+Child of Automation Segment.
+
+Simple linear interpolation between $(x_1, y_1)$ and $(x_2, y_2)$, which also works for constant values if $y_1=y_2$.
+
+constructor(...args): just calls super(...args)
+
+ymin: $\min\{y_1, y_2\}$
+
+ymax: $\max\{y_1, y_2\}$
+
+valueAt(x): $$(x - x_1) \cdot \frac{y_2 - y_1}{x_2 - x_1} + y_1$$
+
+derivativeAt(x): $$\frac{y_2-y_1}{x_2-x_1}$$
+
+Derivation: $$\frac{d}{dx}\left((x - x_1) \cdot \frac{y_2 - y_1}{x_2 - x_1} + y_1\right) = \frac{y_2 - y_1}{x_2 - x_1}$$
+
+integralAt(x): $$y_1(x-x_1) + \frac{m(x-x_1)^2}{2},$$ where $m=\frac{y_2 - y_1}{x_2 - x_1}$ is the slope.
+
+Derivation: If $m=\frac{y_2 - y_1}{x_2 - x_1}$, then $$integralAt(x) = \int_{x_1}^x (t - x_1) \cdot m + y_1 dt = \int_{0}^{x-x_1} mt + y_1 dt.$$ The antiderivative is $bt + \frac{mt^2}{2}$, so the value of the definite integral is
+
+$$\left. y_1t + \frac{mt^2}{2} \right\vert _ {t=0} ^ {t=x-x_1} = \underbrace{y_1(x-x_1)}_{\text{rectangle}} + \underbrace{\frac{m(x-x_1)^2}{2}}_{\text{triangle}}$$
+
+The underbraces are for a sanity check.
+
+timeIntegral(x)= $$\begin{cases}
+\frac{\log(m(x-x_1)+y_1)-\log(y_1)}{m}, m\neq 0 \\
+\frac{x-x_1}{y_1}, m = 0
+\end{cases}$$
+
+Derivation: We have $\int \frac{1}{mx+b} dx = \frac{\log(mx+b)}{m}+C$ if $m\neq 0$, where $\log$ is $\ln$. Of course, we have $b = y_1$ and $m=\frac{y_2 - y_1}{x_2 - x_1}$, so we have
+
+$$\int_{x_1}^x \frac{1}{s(t)} dt = \int_{0}^{x-x_1} \frac{1}{s(t+x_1)} dt = \left. \frac{\log(mt+y_1)}{m} \right\vert _ {t=0}^{t=x-x_1} = \frac{\log(m(x-x_1)+y_1)-\log(y_1)}{m}.$$
+
+If $m=0$, then we're just integrating $1/y_1$ from $x_1$ to $x$, giving $\frac{x-x_1}{y_1}$. In practice, it's probably intelligent to choose some arbitrary $0<\epsilon\ll 1$ and use this second formula for $|m| < \epsilon$, because dividing by very small $m$ is not good float-wise. [TODO] figure out a better way to calculate timeIntegral for very, very small $|m|$.
+
+translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
+
+translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$
+
+scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$
+
+scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$
+
+clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2$.
+
+
+
 
 \end{document}
