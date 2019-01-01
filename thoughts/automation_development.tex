@@ -123,19 +123,31 @@ length(): returns $x_2 - x_1$
 
 deltaY(): returns $y_2 - y_1$
 
+valueAt(x): returns getValues(x), taking in a single value
+
+derivativeAt(x): returns getDerivatives(x), taking in a single value
+
+integralAt(x): returns getIntegrals(x), taking in a single value
+
+timeIntegralAt(x): returns getTimeIntegrals(x), taking in a single value
+
 Children should implement:
 
 ymin(): minimum of the segment over the range $[x_1, x_2]$.
 
 ymax(): maximum of the segment over the range $[x_1, x_2]$.
 
-valueAt(x): returning the value of the segment at beat x. Only has to be valid for the domain $[x_1, x_2]$, but it can be continued to other values if that makes things easier.
+\textbf{Note: the following functions should take in Float64Arrays and evaluate the specified quantity for each array entry, then rewrite that array entry.}
 
-derivativeAt(x): returning the value of the derivative at beat x. Similarly, only has to be valid for $[x_1, x_2]$.
+getValues(x): returning the value of the segment at beat x. Only has to be valid for the domain $[x_1, x_2]$, but it can be continued to other values if that makes things easier.
 
-integralAt(x): returning the value of $$\int_{x_1}^x s(x) dx;$$ only has to be valid for $[x_1, x_2]$.
+getDerivatives(x): returning the value of the derivative at beat x. Similarly, only has to be valid for $[x_1, x_2]$.
 
-timeIntegral(x): returning the value of $$\int_{x_1}^x \frac{1}{s(x)} dx;$$ only has to be valid for $[x_1, x_2]$ and if ymin() $>$ 0.
+getIntegrals(x): returning the value of $$\int_{x_1}^x s(x) dx;$$ only has to be valid for $[x_1, x_2]$.
+
+getTimeIntegrals(x): returning the value of $$\int_{x_1}^x \frac{1}{s(x)} dx;$$ only has to be valid for $[x_1, x_2]$ and if ymin() $>$ 0.
+
+\textbf{End Note.}
 
 translateX(x): translate the segment left or right by x units and return itself
 
@@ -146,6 +158,7 @@ scaleX(x): scale the segment \textbf{relative to 0} in the x-axis and return its
 scaleY(y): scale the segment \textbf{relative to 0} in the y-axis and return itself
 
 clone(): clone the segment
+
 
 %snip(a, b): return a new segment between a and b with the same values as this segment
 
@@ -167,13 +180,13 @@ ymin: c
 
 ymax: c
 
-valueAt(x): c
+getValues(x): c
 
-derivativeAt(x): 0
+getDerivatives(x): 0
 
-integralAt(x): $c(x-x_1)$
+getIntegrals(x): $c(x-x_1)$
 
-timeIntegral(x): $(x-x_1)/c$
+getTimeIntegrals(x): $(x-x_1)/c$
 
 translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
 
@@ -201,21 +214,21 @@ ymin: $\min\{y_1, y_2\}$
 
 ymax: $\max\{y_1, y_2\}$
 
-valueAt(x): $$(x - x_1) \cdot \frac{y_2 - y_1}{x_2 - x_1} + y_1$$
+getValues(x): $$(x - x_1) \cdot \frac{y_2 - y_1}{x_2 - x_1} + y_1$$
 
-derivativeAt(x): $$\frac{y_2-y_1}{x_2-x_1}$$
+getDerivatives(x): $$\frac{y_2-y_1}{x_2-x_1}$$
 
 Derivation: $$\frac{d}{dx}\left((x - x_1) \cdot \frac{y_2 - y_1}{x_2 - x_1} + y_1\right) = \frac{y_2 - y_1}{x_2 - x_1}$$
 
-integralAt(x): $$y_1(x-x_1) + \frac{m(x-x_1)^2}{2},$$ where $m=\frac{y_2 - y_1}{x_2 - x_1}$ is the slope.
+getIntegrals(x): $$y_1(x-x_1) + \frac{m(x-x_1)^2}{2},$$ where $m=\frac{y_2 - y_1}{x_2 - x_1}$ is the slope.
 
-Derivation: If $m=\frac{y_2 - y_1}{x_2 - x_1}$, then $$integralAt(x) = \int_{x_1}^x (t - x_1) \cdot m + y_1 dt = \int_{0}^{x-x_1} mt + y_1 dt.$$ The antiderivative is $bt + \frac{mt^2}{2}$, so the value of the definite integral is
+Derivation: If $m=\frac{y_2 - y_1}{x_2 - x_1}$, then $$getIntegrals(x) = \int_{x_1}^x (t - x_1) \cdot m + y_1 dt = \int_{0}^{x-x_1} mt + y_1 dt.$$ The antiderivative is $bt + \frac{mt^2}{2}$, so the value of the definite integral is
 
 $$\left. y_1t + \frac{mt^2}{2} \right\vert _ {t=0} ^ {t=x-x_1} = \underbrace{y_1(x-x_1)}_{\text{rectangle}} + \underbrace{\frac{m(x-x_1)^2}{2}}_{\text{triangle}}$$
 
 The underbraces are for a sanity check.
 
-timeIntegral(x)= $$\begin{cases}
+getTimeIntegrals(x)= $$\begin{cases}
 \frac{\log(m(x-x_1)+y_1)-\log(y_1)}{m}, m\neq 0 \\
 \frac{x-x_1}{y_1}, m = 0
 \end{cases}$$
@@ -224,7 +237,7 @@ Derivation: We have $\int \frac{1}{mx+b} dx = \frac{\log(mx+b)}{m}+C$ if $m\neq 
 
 $$\int_{x_1}^x \frac{1}{s(t)} dt = \int_{0}^{x-x_1} \frac{1}{s(t+x_1)} dt = \left. \frac{\log(mt+y_1)}{m} \right\vert _ {t=0}^{t=x-x_1} = \frac{\log(m(x-x_1)+y_1)-\log(y_1)}{m}.$$
 
-If $m=0$, then we're just integrating $1/y_1$ from $x_1$ to $x$, giving $\frac{x-x_1}{y_1}$. In practice, it's probably intelligent to choose some arbitrary $0<\epsilon\ll 1$ and use this second formula for $|m| < \epsilon$, because dividing by very small $m$ is not good float-wise. [TODO] figure out a better way to calculate timeIntegral for very, very small $|m|$.
+If $m=0$, then we're just integrating $1/y_1$ from $x_1$ to $x$, giving $\frac{x-x_1}{y_1}$. In practice, it's probably intelligent to choose some arbitrary $0<\epsilon\ll 1$ and use this second formula for $|m| < \epsilon$, because dividing by very small $m$ is not good float-wise. [TODO] figure out a better way to calculate getTimeIntegrals for very, very small $|m|$.
 
 translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
 
@@ -365,7 +378,7 @@ ymin: $\min\{y_1,y_2\}$
 
 ymax: $\max\{y_1,y_2\}$
 
-valueAt(x): As discussed, it is
+getValues(x): As discussed, it is
 
 $$\frac{y_c'^2}{1-2y_c'}\left(\left(\frac{1}{y_c'}-1\right)^{\frac{2(x-x_1)}{x_2-x_1}}-1\right)(y_2-y_1)+y_1$$
 
@@ -373,7 +386,7 @@ where $y_c'=(y_c-y_1)/(y_2-y_1)$ if $|y_c'-0.5| > \epsilon$, otherwise it is
 
 $$(x-x_1)\frac{y_2-y_1}{x_2-x_1} + y_1.$$
 
-derivativeAt(x): 
+getDerivatives(x): 
 
 $$\left(\frac{y_c'^2}{1-2y_c'}\left(\left(\frac{1}{y_c'}-1\right)^{\frac{2(x-x_1)}{x_2-x_1}}-1\right)(y_2-y_1)+y_1\right)'$$
 
@@ -385,7 +398,7 @@ if $|y_c'-0.5| > \epsilon$, otherwise it is
 
 $$\frac{y_2-y_1}{x_2-x_1}.$$
 
-integralAt(x):
+getIntegrals(x):
 
 $$\int_{x_1}^{x}\frac{y_c'^2}{1-2y_c'}\left(\left(\frac{1}{y_c'}-1\right)^{\frac{2(t-x_1)}{x_2-x_1}}-1\right)(y_2-y_1)+y_1 dt$$
 
@@ -399,7 +412,7 @@ $$=y_1(x-x_1)+\frac{y_c'^2}{1-2y_c'} (y_2-y_1)\left(x_1 - x + \int_{0}^{x-x_1} \
 
 $$=y_1(x-x_1)+\frac{y_c'^2}{1-2y_c'}(y_2-y_1) \left(x_1 - x + \left(\left. \frac{\left(\left(\frac{1}{y_c'}-1\right)^\frac{2}{x_2-x_1}\right)^t}{\log\left(\left(\frac{1}{y_c'}-1\right)^\frac{2}{x_2-x_1}\right)} \right\vert_{t=0}^{t=x-x_1}\right)\right)$$
 
-Thus, let $v = \left(\frac{1}{y_c'}-1\right)^\frac{2}{x_2-x_1}$. Then integralAt(x) is
+Thus, let $v = \left(\frac{1}{y_c'}-1\right)^\frac{2}{x_2-x_1}$. Then getIntegrals(x) is
 
 $$\boxed{y_1(x-x_1)+\frac{y_c'^2}{1-2y_c'} (y_2-y_1)\left(x_1 - x + \frac{v^{x-x_1}-1}{\log(v)}\right)}\qquad (1)$$
 
@@ -413,7 +426,7 @@ Alternatively, (1) is
 
 $$\boxed{y_1(x-x_1)+\frac{y_c'^2}{1-2y_c'} (y_2-y_1)\left(x_1 - x + \frac{\left(\left(\frac{1}{y_c'}-1\right)^\frac{2(x-x_1)}{x_2-x_1}-1\right)(x_2-x_1)}{2\log\left(\frac{1}{y_c'}-1\right)}\right)}$$
 
-timeIntegral(x):
+getTimeIntegrals(x):
 
 This won't be pleasant to evaluate. To do it more easily, let's define some constants to substitute back later.
 
@@ -449,6 +462,207 @@ scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if neces
 scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$, $y_c=yy_c$
 
 clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2, y_c$.
+
+\section{ParabolicAutomationSegment}
+
+Child of AutomationSegment.
+
+This is very similar to the Exponential case, but we use a parabola to interpolate between $(x_1, y_1), ((x_1+x_2)/2, y_c), (x_2, y_2)$. It should have the form $s(x) = ax^2+bx+c$.
+
+Properties (besides parent's):
+
+$y_c$: variable determining the curvature of the parabolic segment.
+
+For the getValues function we can use the Lagrange Interpolation Formula for three variables, which tells us that
+
+$$s(x) = \frac{y_1(x-x_2)(x-m)}{(x_1-x_2)(x_1-m)}+\frac{y_2(x-x_1)(x-m)}{(x_2-x_1)(x_2-m)}+\frac{y_c(x-x_1)(x-x_2)}{(m-x_1)(m-x_2)}$$
+
+where $m=(x_1+x_2)/2$.
+
+$$s(x) = \frac{y_1(x-x_2)(x-m)}{(x_1-x_2)^2/2}+\frac{y_2(x-x_1)(x-m)}{(x_2-x_1)^2/2}+\frac{y_c(x-x_1)(x-x_2)}{-(x_2-x_1)^2/4}$$
+
+$$= \frac{2y_1(x-x_2)(x-m)}{(x_1-x_2)^2}+\frac{2y_2(x-x_1)(x-m)}{(x_2-x_1)^2}-\frac{4y_c(x-x_1)(x-x_2)}{(x_2-x_1)^2}$$
+
+$$= \frac{2y_1(x-x_2)(x-m) + 2y_2(x-x_1)(x-m) - 4y_c(x-x_1)(x-x_2)}{(x_1-x_2)^2}$$
+
+$$= \frac{2(x-m)(y_1(x-x_2)+y_2(x-x_1)) - 4y_c(x-x_1)(x-x_2)}{(x_1-x_2)^2}.$$
+
+For ymin and ymax, we'll need to know the vertex of this parabola, so let's do the getDerivatives first, which should just be a linear function of $x$.
+
+$$\left(\frac{2(x-m)(y_1(x-x_2)+y_2(x-x_1)) - 4y_c(x-x_1)(x-x_2)}{(x_1-x_2)^2}\right)'$$
+
+$$=(x_1-x_2)^{-2}(4 x_2 y_c(x - x_1) - 4 x y_c(x - x_1) - 2 m y_2(x - x_1) - 2 m y_1(x - x_2) + 2 x y_2(x - x_1) + 2 x y_1(x - x_2))'$$
+
+$$=(x_1-x_2)^{-2} ((4y_1+4y_2-8y_c)x+4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2).$$
+
+When this equals $0$, we have the vertex at
+
+$$x= - \frac{4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2}{4y_1+4y_2-8y_c}$$
+
+Functions:
+
+constructor($x_1$, $y_1$, $x_2$, $y_2$, $y_c$): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_2 = x_1$
+
+Let $m=(x_1+x_2)/2$, $n=4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2$, and $d=4y_1+4y_2-8y_c$.
+
+ymin: $$=\begin{cases}
+\min\{y_1,y_2\}, d\leq 0 \\
+\min\{y_1,y_2\}, d\neq 0 \land \neg(x_1 < n/d < x_2) \\
+getValues(n/d), otherwise
+\end{cases}$$
+
+ymax: $$=\begin{cases}
+\max\{y_1,y_2\}, d\geq 0 \\
+\max\{y_1,y_2\}, d\neq 0 \land \neg(x_1 < n/d < x_2) \\
+getValues(n/d), otherwise
+\end{cases}$$
+
+getValues(x): $$\frac{2(x-m)(y_1(x-x_2)+y_2(x-x_1)) - 4y_c(x-x_1)(x-x_2)}{(x_1-x_2)^2}$$
+
+getDerivatives(x): $$(x_1-x_2)^{-2} ((4y_1+4y_2-8y_c)x+4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2)$$
+
+getIntegrals(x):
+
+$$\int_{x_1}^x \frac{2(x-m)(y_1(x-x_2)+y_2(x-x_1)) - 4y_c(x-x_1)(x-x_2)}{(x_1-x_2)^2} dx$$
+
+\begin{multline*}
+=(x_1-x_2)^{-2}\int_{x_1}^x 4 x_2 y_c x - 4 x_2 y_c x_1 - 4 x y_c x + 4 x y_c x_1 - 2 m y_1 x + 2 m y_1 x_2 \\ - 2 m x y_2 + 2 m x_1 y_2 + 2 x^2 y_2 - 2 x x_1 y_2 + 2 x y_1 x - 2 x y_1 x_2 dx
+\end{multline*}
+
+\begin{multline*}
+=(x_1-x_2)^{-2} \int_{x_1}^x (2y_1+2y_2-4y_c)x^2 + (4 x_2 y_c + 4 y_c x_1 - 2 m y_1 - 2 m y_2 - 2 x_1 y_2 - 2 y_1 x_2) x \\ + (-4 x_2 y_c x_1 + 2 m y_1 x_2 + 2 m x_1 y_2) dx
+\end{multline*}
+
+\begin{multline*}
+=(x_1-x_2)^{-2} \biggl(\bigl.\frac{(2y_1+2y_2-4y_c)x^3}{3} + \frac{(4 x_2 y_c + 4 y_c x_1 - 2 m y_1 - 2 m y_2 - 2 x_1 y_2 - 2 y_1 x_2) x^2}{2} \\ + (-4 x_2 y_c x_1 + 2 m y_1 x_2 + 2 m x_1 y_2)x\bigr\vert _ {x=x_1} ^ {x=x}\biggr)
+\end{multline*}
+
+\begin{multline*}
+=(x_1-x_2)^{-2} \biggl(\frac{\overbrace{(2y_1+2y_2-4y_c)}^{=d/2}(x^3-x_1^3)}{3} + \frac{\overbrace{(4 x_2 y_c + 4 y_c x_1 - 2 m y_1 - 2 m y_2 - 2 x_1 y_2 - 2 y_1 x_2)}^{=n} (x^2-x_1^2)}{2} \\ + (-4 x_2 y_c x_1 + 2 m y_1 x_2 + 2 m x_1 y_2)(x-x_1)\biggr)
+\end{multline*}
+
+getTimeIntegrals(x): Once again, not pleasant. We know that we can express the segment as a quadratic $s(x)=ax^2+bx+c$, and unlike the exponential segment, there's no degenerate case when there's a line besides the fact that $a=0$. We can figure out $a,b,c$ later; let's integrate
+
+$$\int_{x_1}^x \frac{dt}{at^2+bt+c}.$$
+
+One should note that this is not defined for all lower and upper bounds for the definite integral, because we may integrate over an asymptote, but this \textit{does} converge if $pmin() > 0$. Let's find the antiderivative.
+
+Completing the square and using the tangent antiderivative gives
+
+$$\int \frac{1}{ax^2+bx+c}dx = \frac{2}{\sqrt{-q}}\tan^{-1}\left(\frac{2ax+b}{\sqrt{-q}}\right),$$
+
+where $q=b^2-4ac$ is the discriminant, so the definite integral is
+
+$$\frac{2}{\sqrt{-q}}\left(\tan^{-1}\left(\frac{2ax+b}{\sqrt{-q}}\right)-\tan^{-1}\left(\frac{2ax_1+b}{\sqrt{-q}}\right)\right)$$
+
+To find $a,b,c$ we just expand out the formula for getValues and compare terms:
+
+\begin{multline*}
+(x_1-x_2)^{-2}(\underbrace{(2y_1+2y_2-4y_c)}_ax^2 + \underbrace{(4 x_2 y_c + 4 y_c x_1 - 2 m y_1 - 2 m y_2 - 2 x_1 y_2 - 2 y_1 x_2)}_b x \\ + \underbrace{(-4 x_2 y_c x_1 + 2 m y_1 x_2 + 2 m x_1 y_2)}_c)
+\end{multline*}
+
+$$a=\frac{2y_1+2y_2-4y_c}{(x_1-x_2)^2}$$
+$$b=\frac{4 x_2 y_c + 4 y_c x_1 - 2 m y_1 - 2 m y_2 - 2 x_1 y_2 - 2 y_1 x_2}{(x_1-x_2)^2}$$
+$$c=\frac{-4 x_2 y_c x_1 + 2 m y_1 x_2 + 2 m x_1 y_2}{(x_1-x_2)^2}$$
+
+Great! But what if $q=0$ or $q> 0$? In the former case, we'd be dividing by $0$; in the latter case, we'd be involving imaginary numbers. Let's deal with each separately.
+
+If $q=0$ and $a\neq 0$, then the original integral is just
+
+$$\frac{1}{a}\int_{x_1}^x\frac{dt}{\left(t+\frac{b}{2a}\right)^2}=\frac{1}{a}\left(\left.-\frac{1}{t+b/2a}\right\vert_{t=x_1}^{t=x}\right)$$
+
+$$=-\frac{1}{a}\left(\frac{1}{x+b/2a}+\frac{1}{x_1+b/2a}\right)$$
+
+$$=-\left(\frac{2}{2ax+b}+\frac{2}{2ax_1+b}\right)$$
+
+If $a = 0$ and $b\neq 0$, then the original integral is just
+
+$$\int_{x_1}^x\frac{1}{bt+c}= \frac{\log(bx+c)-\log(bx_1+c)}{b},$$
+
+and if $a=b=0$ then we get
+
+$$\frac{x-x_1}{c}.$$
+
+If $q>0$, then $\sqrt{-q}=i\sqrt{q}$; the latter square root should allow us to compute without introducing imaginary numbers.
+
+$$\frac{2}{i\sqrt{q}}\left(\tan^{-1}\left(\frac{2ax+b}{i\sqrt{q}}\right)-\tan^{-1}\left(\frac{2ax_1+b}{i\sqrt{q}}\right)\right).$$
+
+We have that $\tan^{-1}(x/i)=\tan^{-1}{-ix}=i/2(\log(1-ix)-\log(1+ix))=i/2(\log(1-x)-\log(1+x))=-i\tanh^{-1}{x}:$
+
+$$\frac{2}{i\sqrt{q}}i\left(-\tanh^{-1}\left(\frac{2ax+b}{\sqrt{q}}\right)+\tanh^{-1}\left(\frac{2ax_1+b}{\sqrt{q}}\right)\right)$$
+
+$$\frac{2}{\sqrt{q}}\left(-\tanh^{-1}\left(\frac{2ax+b}{\sqrt{q}}\right)+\tanh^{-1}\left(\frac{2ax_1+b}{\sqrt{q}}\right)\right).$$
+
+In the end, we have the following getTimeIntegrals(x):
+
+$$getTimeIntegrals(x)=\begin{cases}
+\frac{x-x_1}{c}, a=b=0 \\
+\frac{\log(bx+c)-\log(bx_1+c)}{b}, a=0 \land b\neq 0 \\
+-\left(\frac{2}{2ax+b}+\frac{2}{2ax_1+b}\right), q=0 \land a\neq 0 \\
+\frac{2}{\sqrt{-q}}\left(\tan^{-1}\left(\frac{2ax+b}{\sqrt{-q}}\right)-\tan^{-1}\left(\frac{2ax_1+b}{\sqrt{-q}}\right)\right), q<0 \land a\neq 0 \\
+\frac{2}{\sqrt{q}}\left(-\tanh^{-1}\left(\frac{2ax+b}{\sqrt{q}}\right)+\tanh^{-1}\left(\frac{2ax_1+b}{\sqrt{q}}\right)\right), q>0 \land a\neq 0
+\end{cases}$$
+
+translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
+
+translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$, $y_c:=y+y_c$
+
+scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if necessary
+
+scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$, $y_c:=yy_c$
+
+clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2, y_c$.
+
+\section{
+
+\section{SuperellipseAutomationSegment}
+
+TO BE CONTINUED
+
+Child of AutomationSegment.
+
+A superellipse is a generalization of an ellipse to a power besides $2$. We can use a segment of a superellipse to interpolate between two points and get some more extreme curves than exponential and quadratic. This exponent will be $n$.
+
+Properties (besides parent's):
+
+$0<n$: the power of the exponent.
+
+The segment between $(x_1, y_1)$ and $(x_2, y_2)$ has equation
+
+$$s(x)=y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}.$$
+
+constructor($x_1$, $y_1$, $x_2$, $y_2$): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_1=x_2$
+
+ymin: $\min\{y_1, y_2\}$
+
+ymax: $\max\{y_1, y_2\}$
+
+getValues(x): $$y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}$$
+
+getDerivatives(x): $$\left(y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}\right)'$$
+
+$$=\left(y_2-y_1\right)\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}}\,'$$
+
+$$=\frac{y_2-y_1}{x_2-x_1}\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}-1}\left(\frac{x-x_2}{x_1-x_2}\right)^{n-1}$$
+
+getIntegrals(x): Consider the simplified integral
+
+$$\int \sqrt[n]{1-x^n}.$$
+
+Unfortunately, this has no closed form solution with elementary functions. 
+
+
+getTimeIntegrals(x): $(x-x_1)/c$
+
+translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
+
+translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$
+
+scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if necessary
+
+scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$
+
+clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2$.
 
 
 
