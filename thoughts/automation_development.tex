@@ -613,53 +613,53 @@ scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$, $y_c:=yy_c$
 
 clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2, y_c$.
 
-\section{SuperellipseAutomationSegment}
+%\section{SuperellipseAutomationSegment}
 
-TO BE CONTINUED
+%TO BE CONTINUED
 
-Child of AutomationSegment.
+%Child of AutomationSegment.
 
-A superellipse is a generalization of an ellipse to a power besides $2$. We can use a segment of a superellipse to interpolate between two points and get some more extreme curves than exponential and quadratic. This exponent will be $n$.
+%A superellipse is a generalization of an ellipse to a power besides $2$. We can use a segment of a superellipse to interpolate between two points and get some more extreme curves than exponential and quadratic. This exponent will be $n$.
 
-Properties (besides parent's):
+%Properties (besides parent's):
 
-$0<n$: the power of the exponent.
+%$0<n$: the power of the exponent.
 
-The segment between $(x_1, y_1)$ and $(x_2, y_2)$ has equation
+%The segment between $(x_1, y_1)$ and $(x_2, y_2)$ has equation
 
-$$s(x)=y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}.$$
+%$$s(x)=y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}.$$
 
-constructor($x_1$, $y_1$, $x_2$, $y_2$): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_1=x_2$
+%constructor($x_1$, $y_1$, $x_2$, $y_2$): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_1=x_2$
 
-ymin: $\min\{y_1, y_2\}$
+%ymin: $\min\{y_1, y_2\}$
 
-ymax: $\max\{y_1, y_2\}$
+%ymax: $\max\{y_1, y_2\}$
 
-getValues(x): $$y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}$$
+%getValues(x): $$y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}$$
 
-getDerivatives(x): $$\left(y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}\right)'$$
+%getDerivatives(x): $$\left(y_1+\left(y_2-y_1\right)\left(1-\frac{\left(x-x_2\right)}{x_1-x_2}^n\right)^{\frac{1}{n}}\right)'$$
 
-$$=\left(y_2-y_1\right)\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}}\,'$$
+%$$=\left(y_2-y_1\right)\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}}\,'$$
 
-$$=\frac{y_2-y_1}{x_2-x_1}\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}-1}\left(\frac{x-x_2}{x_1-x_2}\right)^{n-1}$$
+%$$=\frac{y_2-y_1}{x_2-x_1}\left(1-\left(\frac{x-x_2}{x_1-x_2}\right)^n\right)^{\frac{1}{n}-1}\left(\frac{x-x_2}{x_1-x_2}\right)^{n-1}$$
 
-getIntegrals(x): Consider the simplified integral
+%getIntegrals(x): Consider the simplified integral
 
-$$\int \sqrt[n]{1-x^n}.$$
+%$$\int \sqrt[n]{1-x^n}.$$
 
-Unfortunately, this has no closed form solution with elementary functions. 
+%Unfortunately, this has no closed form solution with elementary functions. 
 
-getTimeIntegrals(x):
+%getTimeIntegrals(x):
 
-translateX(x):
+%translateX(x):
 
-translateY(y):
+%translateY(y):
 
-scaleX(x):
+%scaleX(x):
 
-scaleY(y):
+%scaleY(y):
 
-clone():
+%clone():
 
 \section{Automation}
 
@@ -720,7 +720,5 @@ timeIntegralAt(c): timeIntegral of curve at c, internally calling getTimeIntegra
 scaleX(x): scale the automation by a scale factor, x, flipping it over if necessary
 
 scaleY(y): scale the automation vertically by a scale factor y
-
-
 
 \end{document}
