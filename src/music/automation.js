@@ -1302,3 +1302,5 @@ class Automation {
         this.segments.forEach(segment => segment.scaleY(y));
     }
 }
+
+export { Automation, ConstantAutomationSegment, ExponentialAutomationSegment, LinearAutomationSegment, QuadraticAutomationSegment };
