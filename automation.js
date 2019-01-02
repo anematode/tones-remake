@@ -4,14 +4,37 @@ class AutomationSegment {
     constructor(x1, y1, x2, y2) {
         if (x2 < x1)
             throw new Error("x2 must be greater than or equal to x1.");
+        this._length = 0;
+
         this.x1 = x1;
         this.x2 = x2;
         this.y1 = y1;
         this.y2 = y2;
     }
 
-    length() {
-        return this.x2 - this.x1;
+    get x2() {
+        return this.x1 + this.length;
+    }
+
+    set x2(v) {
+        this.length = v - this.x1;
+    }
+
+    get length() {
+        return this._length;
+    }
+
+    set length(x) {
+        if (x < 0)
+            throw new Error("Can't have a negative length");
+        else if (x === 0 && this._disallowZeroLength)
+            throw new Error("Can't have a zero length");
+        else
+            this._length = x;
+    }
+
+    static get _disallowZeroLength() {
+        return false;
     }
 
     deltaY() {
@@ -64,6 +87,10 @@ class ConstantAutomationSegment extends AutomationSegment {
 
     valueAt() {
         return this.c;
+    }
+
+    getValues(arr) {
+        arr.fill(this.c);
     }
 
     static derivativeAt() {
@@ -138,6 +165,10 @@ class LinearAutomationSegment extends AutomationSegment {
         if (x2 === x1)
             throw new Error("LinearAutomationSegment can't have two identical x boundaries.");
         super(x1, y1, x2, y2);
+    }
+
+    static get _disallowZeroLength() {
+        return false;
     }
 
     ymin() {
@@ -242,13 +273,25 @@ const exponentialAutomationEps = 10e-9;
 class ExponentialAutomationSegment extends AutomationSegment {
     constructor(x1, y1, x2, y2, yc) {
         if (x2 === x1)
-            throw new Error("LinearAutomationSegment can't have two identical x boundaries.");
+            throw new Error("ExponentialAutomationSegment can't have two identical x boundaries.");
         super(x1, y1, x2, y2);
 
+        this.yc = yc;
+    }
+
+    get yc() {
+        return this._yc;
+    }
+
+    set yc(yc) {
         if (yc <= this.ymin() || yc >= this.ymax())
             throw new Error("yc out of bounds");
 
-        this.yc = yc;
+        this._yc = yc;
+    }
+
+    static get _disallowZeroLength() {
+        return false;
     }
 
     ymin() {
@@ -270,11 +313,11 @@ class ExponentialAutomationSegment extends AutomationSegment {
             }
         } else {
             let c1 = ycp * ycp / (1 - 2 * ycp) * (y2 - y1);
-            let base = 1 / ycp - 1;
             let tms = 2 / (x2 - x1);
+            let base = Math.pow(1 / ycp - 1, tms);
 
             for (let i = 0; i < arr.length; i++) {
-                arr[i] = c1 * (Math.pow(base, tms * (arr[i] - x1)) - 1) + y1;
+                arr[i] = c1 * (Math.pow(base, arr[i] - x1) - 1) + y1;
             }
         }
     }
@@ -411,6 +454,10 @@ class QuadraticAutomationSegment extends AutomationSegment {
             throw new Error("QuadraticAutomationSegment can't have two identical x boundaries.");
         super(x1, y1, x2, y2);
         this.yc = yc;
+    }
+
+    static get _disallowZeroLength() {
+        return false;
     }
 
     _n() {
@@ -591,3 +638,211 @@ class QuadraticAutomationSegment extends AutomationSegment {
         return new QuadraticAutomationSegment(this.x1, this.y1, this.x2, this.y2, this.yc);
     }
 }
+
+function isSorted(arr) {
+    let prev = -Infinity;
+    for (let i = 0; i < arr.length; i++) {
+        if (prev < arr[i])
+            prev = arr[i];
+        else
+            return false;
+    }
+    return true;
+}
+
+class Automation {
+    constructor(segments = []) {
+        if (!Array.isArray(segments))
+            throw new Error("Automation constructor takes in an array.");
+
+        this.segments = segments;
+    }
+
+    ymin() {
+        let minV = Infinity;
+        let segments = this.segments;
+
+        for (let i = 0; i < segments.length; i++) {
+            let seg_min = segments[i].ymin();
+
+            if (seg_min < minV)
+                minV = seg_min;
+        }
+
+        return minV;
+    }
+
+    ymax() {
+        let maxV = Infinity;
+        let segments = this.segments;
+
+        for (let i = 0; i < segments.length; i++) {
+            let seg_max = segments[i].ymax();
+
+            if (seg_max < maxV)
+                maxV = seg_max;
+        }
+
+        return maxV;
+    }
+
+    get segCount() {
+        return this.segments.length;
+    }
+
+    get length() {
+        return this.segCount() > 0 ? this.getSegment(this.segCount() - 1).x2 : 0;
+    }
+
+    getSegment(i) {
+        if (0 <= i && i < this.segments.length) {
+            return this.segments[i];
+        }
+        throw new Error(`Index ${i} out of bounds.`);
+    }
+
+    setSegment(i, seg) {
+        if (0 <= i && i < this.segments.length) {
+            this.segments[i] = seg;
+        } else {
+            throw new Error(`Index ${i} out of bounds.`);
+        }
+
+        this.update();
+
+        return this;
+    }
+
+    insertSegment(i, seg) {
+        if (0 <= i && i <= this.segments.length) {
+            this.segments.splice(i, 0, seg);
+        } else {
+            throw new Error(`Index ${i} out of bounds.`);
+        }
+
+        this.update();
+
+        return this;
+    }
+
+    removeSegment(i) {
+        if (0 <= i && i < this.segments.length) {
+            this.segments.splice(i, 1);
+        }
+
+        this.update();
+
+        return this;
+    }
+
+    removeSegmentIf(func) {
+        let segments = this.segments;
+
+        for (let i = segments.length - 1; i >= 0; i--) {
+            if (func(segments[i]))
+                segments.splice(i, 1);
+        }
+
+        this.update();
+        return this;
+    }
+
+    addSegment(seg) {
+        this.segments.push(seg);
+
+        this.update();
+
+        return this;
+    }
+
+    update() {
+        let segments = this.segments;
+        let x = 0;
+
+        for (let i = 0; i < segments.length; i++) {
+            segments[i].x1 = x;
+            x = segments[i].x2;
+        }
+    }
+
+    getValues(arr, sorted = false) {
+        let segments = this.segments;
+
+        if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
+            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
+
+            let j = 0, seg, x1, x2;
+
+            for (let i = 0; i < segments.length; i++) {
+                seg = segments[i];
+
+                if ((x2 = seg.x2) < arr[j])
+                    continue;
+
+                let start_j = j;
+
+                while (arr[++j] < x2);
+
+                console.time("sub");
+                seg.getValues(arr.subarray(start_j, j));
+                console.timeEnd("sub");
+            }
+        } else {
+            for (let i = 0; i < arr.length; i++) {
+                let x = arr[i];
+
+                let min = 0;
+                let max = segments.length-1;
+                let mid = Math.floor((min + max) / 2);
+                let loop = 50; // how many searches before it gives up
+
+                if (x <= 0)
+                    x = 0;
+
+                if (x < segments[0].x2) {
+                    mid = 0;
+                    loop = false;
+                } else if (x > segments[max].x2) {
+                    // x is beyond segment
+                    mid = -1;
+                    loop = false;
+                }
+
+                while (loop--) {
+                    let seg = segments[mid];
+                    let x1 = seg.x1, x2 = seg.x2;
+
+                    if (x >= x2) {
+                        min = mid;
+                    } else if (x < x1) {
+                        max = mid;
+                    } else {
+                        break;
+                    }
+
+                    mid = Math.ceil((min + max) / 2);
+                }
+
+                if (mid === -1)
+                    arr[i] = segments[max].y2;
+                else {
+                    arr[i] = segments[mid].valueAt(arr[i]);
+                }
+            }
+        }
+    }
+}
+
+let automation = new Automation();
+
+let arr = new Float32Array([...Array(1e6).keys()].map(x => 10 * x / 1e6));
+//let arr = new Float32Array([...Array(50).keys()].map(x => x / 5));
+
+automation.addSegment(new ConstantAutomationSegment(0, 4, 60));
+automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 69.9999));
+automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 64));
+automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40));
+
+console.time("egg");
+automation.getValues(arr, true);
+console.timeEnd("egg");

@@ -545,7 +545,7 @@ getTimeIntegrals(x): Once again, not pleasant. We know that we can express the s
 
 $$\int_{x_1}^x \frac{dt}{at^2+bt+c}.$$
 
-One should note that this is not defined for all lower and upper bounds for the definite integral, because we may integrate over an asymptote, but this \textit{does} converge if $pmin() > 0$. Let's find the antiderivative.
+One should note that this is not defined for all lower and upper bounds for the definite integral, because we may integrate over an asymptote, but this \textit{does} converge if $ymin() > 0$. Let's find the antiderivative.
 
 Completing the square and using the tangent antiderivative gives
 
@@ -613,8 +613,6 @@ scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$, $y_c:=yy_c$
 
 clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2, y_c$.
 
-\section{
-
 \section{SuperellipseAutomationSegment}
 
 TO BE CONTINUED
@@ -651,18 +649,77 @@ $$\int \sqrt[n]{1-x^n}.$$
 
 Unfortunately, this has no closed form solution with elementary functions. 
 
+getTimeIntegrals(x):
 
-getTimeIntegrals(x): $(x-x_1)/c$
+translateX(x):
 
-translateX(x): $x_1:=x+x_1$, $x_2:=x+x_2$
+translateY(y):
 
-translateY(y): $y_1:=y+y_1$, $y_2:=y+y_2$
+scaleX(x):
 
-scaleX(x): $x_1:=xx_1$, $x_2:=xx_2$; flip $(x_1, y_1)$ and $(x_2, y_2)$ if necessary
+scaleY(y):
 
-scaleY(y): $y_1:=yy_1$, $y_2:=yy_2$
+clone():
 
-clone(): simply construct the segment with parameters $x_1, y_1, x_2, y_2$.
+\section{Automation}
+
+Now it's time to combine these segments into an actual automation. We store each segment in an array, and we require that the first segment start at $x=0$. Furthermore, we need the endpoints of each segment to line up correctly.
+
+Properties:
+
+segments, the array of segments (possibly empty)
+
+Functions:
+
+constructor(segments = []): takes in an array of segments; initializing with no segments is allowed
+
+ymin(): Infinity or $$\min\{s_i.ymin()\}$$
+
+ymax(): -Infinity or $$\max\{s_i.ymax()\}$$
+
+get segCount(): segments.length
+
+get length(): segCount() $>$ 0 ? segments[segments.length - 1].x2 : 0
+
+getSegment(i): segments[i], throws error if out of bounds
+
+setSegment(i, seg): sets segments[i] to seg
+
+insertSegment(i, seg): inserts a segment at i
+
+removeSegment(i): removes a segment at i
+
+removeSegmentIf(func): removes a segment if func evaluates to true
+
+clearSegments(): removes all segments
+
+isConsistent(): checks whether the segments are consistent in terms of boundaries
+
+addSegment(seg): appends the segment to the end of the automation, shifting it by the necessary amount
+
+shiftSegments(i, units): shift all segments after and including i to the right or left by units
+
+getValues(arr): takes in an array, fills it up with the values defined by the piecewise
+
+getDerivatives(arr): takes in an array, fills it up with the derivatives defined by the piecewise
+
+getIntegrals(arr): takes in an array, fills it up with the integrals defined by the piecewise
+
+getTimeIntegrals(arr): takes in an array, fills it up with the time integrals defined by the piecewise 
+
+valueAt(c): value of curve at c, internally calling getValues
+
+derivativeAt(c): derivative of curve at c, internally calling getDerivatives
+
+integralAt(c): integral of curve at c, internally calling getIntegrals
+
+timeIntegralAt(c): timeIntegral of curve at c, internally calling getTimeIntegrals
+
+\_timeIntegralCheck(): checks whether ymin() > 0
+
+scaleX(x): scale the automation by a scale factor, x, flipping it over if necessary
+
+scaleY(y): scale the automation vertically by a scale factor y
 
 
 
