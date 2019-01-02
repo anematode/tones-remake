@@ -93,11 +93,11 @@ class ConstantAutomationSegment extends AutomationSegment {
         arr.fill(this.c);
     }
 
-    static derivativeAt() {
+    derivativeAt() {
         return 0;
     }
 
-    static getDerivatives(arr) {
+    getDerivatives(arr) {
         arr.fill(0);
     }
 
@@ -771,21 +771,44 @@ class Automation {
         if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
             // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
 
-            let j = 0, seg, x1, x2;
+            let j = 0, seg, x2, start_j, min, max;
 
             for (let i = 0; i < segments.length; i++) {
                 seg = segments[i];
 
-                if ((x2 = seg.x2) < arr[j])
+                if ((x2 = seg.x2) <= arr[j])
                     continue;
 
-                let start_j = j;
+                start_j = j;
 
-                while (arr[++j] < x2);
+                min = j;
+                max = arr.length - 1;
+                j = Math.floor((min + max) / 2);
 
-                console.time("sub");
+                if (arr[max] < x2) {
+                    j = max + 1;
+                } else while (true) {
+                    if (arr[j] < x2) {
+                        min = j;
+                    } else {
+                        max = j;
+                        if (j === 0 || arr[j - 1] < x2)
+                            break;
+                    }
+
+                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                }
+
                 seg.getValues(arr.subarray(start_j, j));
-                console.timeEnd("sub");
+                if (j === arr.length)
+                    break;
+            }
+
+            if (j < arr.length) {
+                // Fill up remaining values
+
+                let lastVal = segments[segments.length - 1].y2;
+                arr.subarray(j).fill(lastVal);
             }
         } else {
             for (let i = 0; i < arr.length; i++) {
@@ -831,18 +854,409 @@ class Automation {
             }
         }
     }
+
+    getDerivatives(arr, sorted = false) {
+        let segments = this.segments;
+
+        if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
+            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
+
+            let j = 0, seg, x2, start_j, min, max;
+
+            for (let i = 0; i < segments.length; i++) {
+                seg = segments[i];
+
+                if ((x2 = seg.x2) <= arr[j])
+                    continue;
+
+                start_j = j;
+
+                min = j;
+                max = arr.length - 1;
+                j = Math.floor((min + max) / 2);
+
+                if (arr[max] < x2) {
+                    j = max + 1;
+                } else while (true) {
+                    if (arr[j] < x2) {
+                        min = j;
+                    } else {
+                        max = j;
+                        if (j === 0 || arr[j - 1] < x2)
+                            break;
+                    }
+
+                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                }
+
+                let subarray = arr.subarray(start_j, j);
+
+                seg.getDerivatives(subarray);
+
+                /*for (let i = 0, item; i < subarray.length; i++) { // set undefined derivatives to NaN
+                    item = subarray[i];
+                    if (item === x1 || item === x2)
+                        subarray[i] = NaN;
+                }*/
+
+                if (j === arr.length)
+                    break;
+            }
+
+            if (j < arr.length) {
+                // Fill up remaining values
+
+                arr.subarray(j).fill(0);
+            }
+        } else {
+            for (let i = 0; i < arr.length; i++) {
+                let x = arr[i];
+
+                let min = 0;
+                let max = segments.length-1;
+                let mid = Math.floor((min + max) / 2);
+                let loop = 50; // how many searches before it gives up
+
+                if (x <= 0)
+                    x = 0;
+
+                if (x < segments[0].x2) {
+                    mid = 0;
+                    loop = false;
+                } else if (x > segments[max].x2) {
+                    // x is beyond segment
+                    mid = -1;
+                    loop = false;
+                }
+
+                while (loop--) {
+                    let seg = segments[mid];
+                    let x1 = seg.x1, x2 = seg.x2;
+
+                    if (x >= x2) {
+                        min = mid;
+                    } else if (x < x1) {
+                        max = mid;
+                    } else {
+                        break;
+                    }
+
+                    mid = Math.ceil((min + max) / 2);
+                }
+
+                if (mid === -1)
+                    arr[i] = 0;
+                else {
+                    arr[i] = segments[mid].derivativeAt(arr[i]);
+                }
+            }
+        }
+    }
+
+    getIntegrals(arr, sorted = false) {
+        let segments = this.segments;
+
+        if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
+            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
+
+            let j = 0, seg, x2, start_j, min, max, tmp, seg_i, subarray;
+            let running_integral = 0;
+
+            for (let i = 0; i < segments.length; i++) {
+                seg = segments[i];
+
+                if ((x2 = seg.x2) <= arr[j]) {
+                    running_integral += seg.integralAt(seg.x2);
+
+                    continue;
+                }
+
+                start_j = j;
+
+                min = j;
+                max = arr.length - 1;
+                j = Math.floor((min + max) / 2);
+
+                if (arr[max] < x2) {
+                    j = max + 1;
+                } else while (true) {
+                    if (arr[j] < x2) {
+                        min = j;
+                    } else {
+                        max = j;
+                        if (j === 0 || arr[j - 1] < x2)
+                            break;
+                    }
+
+                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                }
+
+                if (j < arr.length) {
+
+                    subarray = arr.subarray(start_j, j + 1);
+                    tmp = arr[j];
+                    arr[j] = seg.x2;
+
+                    seg.getIntegrals(subarray);
+                    seg_i = arr[j];
+                    arr[j] = tmp;
+
+                    for (let i = 0; i < subarray.length - 1; i++) {
+                        subarray[i] += running_integral;
+                    }
+
+                    running_integral += seg_i;
+                } else { // we don't have to continue keeping track of the running integral because there's no more values to compute!
+                    subarray = arr.subarray(start_j, j);
+                    seg.getIntegrals(subarray);
+
+                    for (let i = 0; i < subarray.length; i++) {
+                        subarray[i] += running_integral;
+                    }
+
+                    break;
+                }
+            }
+
+            if (j < arr.length) {
+                // Fill up remaining values
+                let last_seg = segments[segments.length - 1];
+
+                let y2 = last_seg.y2;
+                let x2 = last_seg.x2;
+
+                for (let i = j; i < arr.length; i++) {
+                    arr[i] = running_integral + (arr[i] - x2) * y2;
+                }
+            }
+        } else {
+            let integrals = new Float64Array(segments.length);
+
+            for (let i = 0; i < segments.length; i++) {
+                let seg = segments[i];
+
+                integrals[i] = seg.integralAt(seg.x2) + (i > 0 ? integrals[i-1] : 0);
+            }
+
+            for (let i = 0; i < arr.length; i++) {
+                let x = arr[i];
+
+                let min = 0;
+                let max = segments.length - 1;
+                let mid = Math.floor((min + max) / 2);
+                let loop = 50; // how many searches before it gives up
+
+                if (x <= 0)
+                    x = 0;
+
+                if (x < segments[0].x2) {
+                    mid = 0;
+                    loop = false;
+                } else if (x > segments[max].x2) {
+                    // x is beyond segment
+                    mid = -1;
+                    loop = false;
+                }
+
+                while (loop--) {
+                    let seg = segments[mid];
+                    let x1 = seg.x1, x2 = seg.x2;
+
+                    if (x >= x2) {
+                        min = mid;
+                    } else if (x < x1) {
+                        max = mid;
+                    } else {
+                        break;
+                    }
+
+                    mid = Math.ceil((min + max) / 2);
+                }
+
+                if (mid === -1) {
+                    let last_seg = segments[segments.length - 1];
+
+                    arr[i] = integrals[integrals.length - 1] + (arr[i] - last_seg.x2) * last_seg.y2;
+                } else {
+                    arr[i] = segments[mid].integralAt(arr[i]) + (mid > 0 ? integrals[mid - 1] : 0);
+                }
+            }
+        }
+    }
+
+    getTimeIntegrals(arr, sorted = false) {
+        this._timeIntegralCheck();
+
+        let segments = this.segments;
+
+        if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
+            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
+
+            let j = 0, seg, x2, start_j, min, max, tmp, seg_i, subarray;
+            let running_integral = 0;
+
+            for (let i = 0; i < segments.length; i++) {
+                seg = segments[i];
+
+                if ((x2 = seg.x2) <= arr[j]) {
+                    running_integral += seg.timeIntegralAt(seg.x2);
+
+                    continue;
+                }
+
+                start_j = j;
+
+                min = j;
+                max = arr.length - 1;
+                j = Math.floor((min + max) / 2);
+
+                if (arr[max] < x2) {
+                    j = max + 1;
+                } else while (true) {
+                    if (arr[j] < x2) {
+                        min = j;
+                    } else {
+                        max = j;
+                        if (j === 0 || arr[j - 1] < x2)
+                            break;
+                    }
+
+                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                }
+
+                if (j < arr.length) {
+
+                    subarray = arr.subarray(start_j, j + 1);
+                    tmp = arr[j];
+                    arr[j] = seg.x2;
+
+                    seg.getTimeIntegrals(subarray);
+                    seg_i = arr[j];
+                    arr[j] = tmp;
+
+                    for (let i = 0; i < subarray.length - 1; i++) {
+                        subarray[i] += running_integral;
+                    }
+
+                    running_integral += seg_i;
+                } else { // we don't have to continue keeping track of the running integral because there's no more values to compute!
+                    subarray = arr.subarray(start_j, j);
+                    seg.getTimeIntegrals(subarray);
+
+                    for (let i = 0; i < subarray.length; i++) {
+                        subarray[i] += running_integral;
+                    }
+
+                    break;
+                }
+            }
+
+            if (j < arr.length) {
+                // Fill up remaining values
+                let last_seg = segments[segments.length - 1];
+
+                let y2 = last_seg.y2;
+                let x2 = last_seg.x2;
+
+                for (let i = j; i < arr.length; i++) {
+                    arr[i] = running_integral + (arr[i] - x2) / y2;
+                }
+            }
+        } else {
+            let integrals = new Float64Array(segments.length);
+
+            for (let i = 0; i < segments.length; i++) {
+                let seg = segments[i];
+
+                integrals[i] = seg.integralAt(seg.x2) + (i > 0 ? integrals[i-1] : 0);
+            }
+
+            for (let i = 0; i < arr.length; i++) {
+                let x = arr[i];
+
+                let min = 0;
+                let max = segments.length - 1;
+                let mid = Math.floor((min + max) / 2);
+                let loop = 50; // how many searches before it gives up
+
+                if (x <= 0)
+                    x = 0;
+
+                if (x < segments[0].x2) {
+                    mid = 0;
+                    loop = false;
+                } else if (x > segments[max].x2) {
+                    // x is beyond segment
+                    mid = -1;
+                    loop = false;
+                }
+
+                while (loop--) {
+                    let seg = segments[mid];
+                    let x1 = seg.x1, x2 = seg.x2;
+
+                    if (x >= x2) {
+                        min = mid;
+                    } else if (x < x1) {
+                        max = mid;
+                    } else {
+                        break;
+                    }
+
+                    mid = Math.ceil((min + max) / 2);
+                }
+
+                if (mid === -1) {
+                    let last_seg = segments[segments.length - 1];
+
+                    arr[i] = integrals[integrals.length - 1] + (arr[i] - last_seg.x2) / last_seg.y2;
+                } else {
+                    arr[i] = segments[mid].timeIntegralAt(arr[i]) + (mid > 0 ? integrals[mid - 1] : 0);
+                }
+            }
+        }
+    }
+
+    valueAt(c) {
+        let arr = new Float64Array([c]);
+        this.getValues(arr);
+        return arr[0];
+    }
+
+    derivativeAt(c) {
+        let arr = new Float64Array([c]);
+        this.getDerivatives(arr);
+        return arr[0];
+    }
+
+    integralAt(c) {
+        let arr = new Float64Array([c]);
+        this.getIntegrals(arr);
+        return arr[0];
+    }
+
+    _timeIntegralCheck() {
+        if (this.ymin() <= 0)
+            throw new Error("Time integral does not exist, because the y minimum is less than 0.");
+    }
+
+    timeIntegralAt(c) {
+        let arr = new Float64Array([c]);
+        this.getTimeIntegrals(arr);
+        return arr[0];
+    }
 }
 
 let automation = new Automation();
 
-let arr = new Float32Array([...Array(1e6).keys()].map(x => 10 * x / 1e6));
-//let arr = new Float32Array([...Array(50).keys()].map(x => x / 5));
+//let arr = new Float32Array([...Array(1e7).keys()].map(x => 10 * x / 1e7));
+let arr = new Float32Array([...Array(50).keys()].map(x => x / 3));
 
 automation.addSegment(new ConstantAutomationSegment(0, 4, 60));
-automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 69.9999));
+automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 70));
 automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 64));
 automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40));
 
-console.time("egg");
-automation.getValues(arr, true);
-console.timeEnd("egg");
+function test() {
+    automation.getTimeIntegrals(arr);
+}
