@@ -693,6 +693,7 @@ class Automation {
             throw new Error("Automation constructor takes in an array.");
 
         this.segments = segments;
+        this.update();
     }
 
     ymin() {
@@ -712,13 +713,13 @@ class Automation {
 
     ymax() {
         // Find the maximum of all segments
-        let maxV = Infinity;
+        let maxV = -Infinity;
         let segments = this.segments;
 
         for (let i = 0; i < segments.length; i++) {
             let seg_max = segments[i].ymax();
 
-            if (seg_max < maxV)
+            if (seg_max > maxV)
                 maxV = seg_max;
         }
 
@@ -730,7 +731,7 @@ class Automation {
     }
 
     get length() { // formula given in (1)
-        return this.segCount() > 0 ? this.getSegment(this.segCount() - 1).x2 : 0;
+        return this.segCount > 0 ? this.getSegment(this.segCount - 1).x2 : 0;
     }
 
     getSegment(i) { // returns the ith segment
