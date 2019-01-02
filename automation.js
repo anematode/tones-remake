@@ -1,10 +1,18 @@
-// An abstraction of automation
+/* An automation defines a mapping x -> y taking in a beat or time for x and outputting the value of a parameter at that time
+An automation is composed of a series of segments and has no gaps; the evaluated value at an interface is the first value of
+the segment directly after this interface. Furthermore, values beyond the end of the automation are the last defined value of
+the last segment. Automations always start at 0. */
 
+/*
+Relevant .tex files: automation_development.tex (1)
+Written by anematode, 1/2/2019
+ */
+
+/* The parent class for all automation segments, defined by a starting (x1, y1), a positive length, and an ending y2. */
 class AutomationSegment {
     constructor(x1, y1, x2, y2) {
-        if (x2 < x1)
+        if (x2 < x1) // Reject x2 < x1
             throw new Error("x2 must be greater than or equal to x1.");
-        this._length = 0;
 
         this.x1 = x1;
         this.x2 = x2;
@@ -12,11 +20,11 @@ class AutomationSegment {
         this.y2 = y2;
     }
 
-    get x2() {
+    get x2() { // x2 is a getter based on length
         return this.x1 + this.length;
     }
 
-    set x2(v) {
+    set x2(v) { // sets length based on x2 - x1
         this.length = v - this.x1;
     }
 
@@ -27,7 +35,7 @@ class AutomationSegment {
     set length(x) {
         if (x < 0)
             throw new Error("Can't have a negative length");
-        else if (x === 0 && this._disallowZeroLength)
+        else if (x === 0 && this._disallowZeroLength) // _disallowZeroLength stops segments with 0 length if this is undefinable for that segment type
             throw new Error("Can't have a zero length");
         else
             this._length = x;
@@ -37,44 +45,47 @@ class AutomationSegment {
         return false;
     }
 
-    deltaY() {
+    deltaY() { // how much does the segment change from start to end
         return this.y2 - this.y1;
     }
 
-    valueAt(x) {
-        let arr = new Float64Array([x]);
-        this.getValues(arr);
-        return arr[0];
+    valueAt(x) { // get the value of the segment at x
+        let arr = new Float64Array([x]); // create internal array to feed to getValues
+        this.getValues(arr); // fill up array with values
+        return arr[0]; // return the array's element
     }
 
-    derivativeAt(x) {
+    derivativeAt(x) { // get the derivative (slope) of the segment at x
         let arr = new Float64Array([x]);
         this.getDerivatives(arr);
         return arr[0];
     }
 
-    integralAt(x) {
+    integralAt(x) { // get the integral (area under) the segment from x1 to x
         let arr = new Float64Array([x]);
         this.getIntegrals(arr);
         return arr[0];
     }
 
-    timeIntegralAt(x) {
+    timeIntegralAt(x) { // get the integral (area under) 1 / f(x), where f(x) is valueAt, from x1 to x (used for tempo)
         let arr = new Float64Array([x]);
         this.getTimeIntegrals(arr);
         return arr[0];
     }
 
-    _timeIntegralCheck() {
+    _timeIntegralCheck() { // throws an error if the timeIntegral is undefined for the segment (i.e. f(c) <= 0 for some c)
         if (this.ymin && this.ymin() <= 0)
             throw new Error("Time integral does not exist, because the y minimum is less than 0.");
     }
 }
 
+/*
+Automation segment that holds a constant value c between x1 and x2
+ */
 class ConstantAutomationSegment extends AutomationSegment {
     constructor(x1, x2, c) {
         super(x1, c, x2, c);
-        this.c = c;
+        this.c = c; // the constant value
     }
 
     ymin() {
@@ -85,19 +96,19 @@ class ConstantAutomationSegment extends AutomationSegment {
         return this.c;
     }
 
-    valueAt() {
+    valueAt() { // it always has a value of c
         return this.c;
     }
 
     getValues(arr) {
-        arr.fill(this.c);
+        arr.fill(this.c); // nice and fast
     }
 
     derivativeAt() {
         return 0;
     }
 
-    getDerivatives(arr) {
+    getDerivatives(arr) { // flat lines have a derivative everywhere of 0
         arr.fill(0);
     }
 
@@ -106,7 +117,7 @@ class ConstantAutomationSegment extends AutomationSegment {
         let c = this.c;
 
         for (let i = 0; i < arr.length; i++) {
-            arr[i] = c * (arr[i] - x1);
+            arr[i] = c * (arr[i] - x1); // area of a rectangle with sides c and x - x1
         }
     }
 
@@ -117,7 +128,7 @@ class ConstantAutomationSegment extends AutomationSegment {
         let c = this.c;
 
         for (let i = 0; i < arr.length; i++) {
-            arr[i] = (arr[i] - x1) / c;
+            arr[i] = (arr[i] - x1) / c; // area of rectangle with sides 1/c and x - x1
         }
     }
 
@@ -135,14 +146,9 @@ class ConstantAutomationSegment extends AutomationSegment {
 
     scaleX(x) {
         this.x1 *= x;
-        this.x2 *= x;
+        this.length *= Math.abs(x);
+        // No need to flip, it's constant
 
-        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
-            let tmp = this.x2;
-
-            this.x2 = this.x1;
-            this.x1 = tmp;
-        }
         return this;
     }
 
@@ -157,9 +163,13 @@ class ConstantAutomationSegment extends AutomationSegment {
     }
 }
 
-const linearAutomationTimeIntegralEps = 1e-9;
+const linearAutomationTimeIntegralEps = 1e-9; // epsilon used internally
 
-// Note: this.derivativeAt(0) is just an easy way to get the slope
+/*
+Simple linear interpolation between (x1, y1) and (x2, y2). This is a special case of quadratic and exp, but this is
+slightly faster than those two just because this doesn't have to check for certain corner cases (those other two, however,
+use basically the same formula as this does already, so there is little difference in actual value computational time).
+ */
 class LinearAutomationSegment extends AutomationSegment {
     constructor(x1, y1, x2, y2) {
         if (x2 === x1)
@@ -167,15 +177,15 @@ class LinearAutomationSegment extends AutomationSegment {
         super(x1, y1, x2, y2);
     }
 
-    static get _disallowZeroLength() {
-        return false;
+    static get _disallowZeroLength() { // disallow 0 length segments, because this makes the derivative implosive
+        return true;
     }
 
-    ymin() {
+    ymin() { // minimum is the minimum of each y value
         return Math.min(this.y1, this.y2);
     }
 
-    ymax() {
+    ymax() { // max is the max of each y value
         return Math.max(this.y1, this.y2);
     }
 
@@ -185,16 +195,16 @@ class LinearAutomationSegment extends AutomationSegment {
         let y1 = this.y1;
 
         for (let i = 0; i < arr.length; i++) {
-            arr[i] = (arr[i] - x1) * slope + y1;
+            arr[i] = (arr[i] - x1) * slope + y1; // simple linear interpolation, shown in (1)
         }
     }
 
-    derivativeAt() {
+    derivativeAt() { // Note: this.derivativeAt() is just an easy way to get the slope for later
         return (this.y2 - this.y1) / (this.x2 - this.x1);
     }
 
     getDerivatives(arr) {
-        arr.fill(this.derivativeAt());
+        arr.fill(this.derivativeAt()); // line has the same derivative everywhere
     }
 
     getIntegrals(arr) {
@@ -204,7 +214,7 @@ class LinearAutomationSegment extends AutomationSegment {
 
         for (let xd, i = 0; i < arr.length; i++) {
             xd = arr[i] - this.x1;
-            arr[i] = y1 * xd + slope * xd * xd / 2;
+            arr[i] = y1 * xd + slope * xd * xd / 2; // shown in (1)
         }
     }
 
@@ -216,12 +226,13 @@ class LinearAutomationSegment extends AutomationSegment {
         let x1 = this.x1, y1 = this.y1;
 
         if (Math.abs(m) < linearAutomationTimeIntegralEps) {
+            // if the slope is extremely small then the next formula will explode (dividing by small number), so approximate as constant
             for (let i = 0; i < arr.length; i++)
                 arr[i] = (arr[i] - x1) / y1;
         }
 
         for (let i = 0; i < arr.length; i++)
-            arr[i] = (Math.log(m * (arr[i] - x1) + y1) - Math.log(y1)) / m;
+            arr[i] = (Math.log(m * (arr[i] - x1) + y1) - Math.log(y1)) / m; // Derived in (1)
     }
 
     translateX(x) {
@@ -237,23 +248,15 @@ class LinearAutomationSegment extends AutomationSegment {
     }
 
     scaleX(x) {
-        if (x === 0)
-            throw new Error("Can't scale by a factor of 0");
-
         this.x1 *= x;
-        this.x2 *= x;
+        this.length *= Math.abs(x);
 
-        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
-            let tmp = this.x2;
-
-            this.x2 = this.x1;
-            this.x1 = tmp;
-            tmp = this.y2;
-            this.y2 = this.y1;
-            this.y1 = tmp;
-        } else if (this.x2 === this.x1) {
-            throw new Error("Scaling resulted in the collapsing of the LinearAutomationSegment due to float imprecision.");
+        if (x < 0) { // flip over if necessary
+            let tmp = this.y1;
+            this.y1 = this.y2;
+            this.y2 = tmp;
         }
+
         return this;
     }
 
@@ -270,6 +273,11 @@ class LinearAutomationSegment extends AutomationSegment {
 
 const exponentialAutomationEps = 10e-9;
 
+/*
+This automation segment does an exponential interpolation between (x1, y1), ((x1 + x2) / 2, yc), (x2, y2).
+Note: if yc = sqrt(y1 * y2) (geometric mean of the two y values), then the interpolation will be smooth in the sense that
+it will specify a frequency increase that is linear pitch-wise, which is useful
+ */
 class ExponentialAutomationSegment extends AutomationSegment {
     constructor(x1, y1, x2, y2, yc) {
         if (x2 === x1)
@@ -284,14 +292,14 @@ class ExponentialAutomationSegment extends AutomationSegment {
     }
 
     set yc(yc) {
-        if (yc <= this.ymin() || yc >= this.ymax())
+        if (yc <= this.ymin() || yc >= this.ymax()) // since exponentials are monotonically increasing/decreasing, yc must be between the y values
             throw new Error("yc out of bounds");
 
         this._yc = yc;
     }
 
-    static get _disallowZeroLength() {
-        return false;
+    static get _disallowZeroLength() { // zero length makes certain things undefined
+        return true;
     }
 
     ymin() {
@@ -306,10 +314,10 @@ class ExponentialAutomationSegment extends AutomationSegment {
         let x1 = this.x1, x2 = this.x2, y1 = this.y1, y2 = this.y2, yc = this.yc;
         let ycp = (yc - y1) / (y2 - y1);
 
-        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) { // If it's too close to a line, compute it like a line
             let slp = (y2 - y1) / (x2 - x1);
             for (let i = 0; i < arr.length; i++) {
-                arr[i] = (arr[i] - x1) * slp + y1;
+                arr[i] = (arr[i] - x1) * slp + y1; // derived in (1)
             }
         } else {
             let c1 = ycp * ycp / (1 - 2 * ycp) * (y2 - y1);
@@ -317,7 +325,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
             let base = Math.pow(1 / ycp - 1, tms);
 
             for (let i = 0; i < arr.length; i++) {
-                arr[i] = c1 * (Math.pow(base, arr[i] - x1) - 1) + y1;
+                arr[i] = c1 * (Math.pow(base, arr[i] - x1) - 1) + y1; // derived in (1)
             }
         }
     }
@@ -326,7 +334,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
         let x1 = this.x1, x2 = this.x2, y1 = this.y1, y2 = this.y2, yc = this.yc;
         let ycp = (yc - y1) / (y2 - y1);
 
-        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) { // If it's too close to a line, compute it like a line
             arr.fill((y2 - y1) / (x2 - x1));
         } else {
             let rycp = 1/ycp - 1;
@@ -336,7 +344,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
             xd = 2 / xd;
 
             for (let i = 0; i < arr.length; i++) {
-                arr[i] = c1 * Math.pow(rycp, xd * (arr[i] - x1));
+                arr[i] = c1 * Math.pow(rycp, xd * (arr[i] - x1)); // derived in (1)
             }
         }
     }
@@ -345,7 +353,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
         let x1 = this.x1, x2 = this.x2, y1 = this.y1, y2 = this.y2, yc = this.yc;
         let ycp = (yc - y1) / (y2 - y1);
 
-        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) { // If it's too close to a line, compute it like a line
             let c1 = (y2 - y1) / (x2 - x1) / 2;
             for (let i = 0; i < arr.length; i++) {
                 let xd = arr[i] - x1;
@@ -360,7 +368,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
 
             for (let i = 0; i < arr.length; i++) {
                 let xfd = arr[i] - x1;
-                arr[i] = y1 * xfd + c1 * (-xfd + (xd * (Math.pow(rycp, 2 * xfd / xd) - 1)) / c2);
+                arr[i] = y1 * xfd + c1 * (-xfd + (xd * (Math.pow(rycp, 2 * xfd / xd) - 1)) / c2); // derived in (1)
             }
         }
     }
@@ -369,16 +377,16 @@ class ExponentialAutomationSegment extends AutomationSegment {
         let x1 = this.x1, x2 = this.x2, y1 = this.y1, y2 = this.y2, yc = this.yc;
         let ycp = (yc - y1) / (y2 - y1);
 
-        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) {
+        if (!ycp || Math.abs(ycp - 0.5) < exponentialAutomationEps) { // If it's too close to a line, compute it like a line
             let m = (y2 - y1) / (x2 - x1);
 
-            if (m === 0) {
-                for (let i = 0; i < arr.length; i++) {
+            if (Math.abs(m) < exponentialAutomationEps) {
+                for (let i = 0; i < arr.length; i++) { // If it's too close to a constant, compute it like a constant
                     arr[i] = (arr[i] - x1) / y1;
                 }
             } else {
                 for (let i = 0; i < arr.length; i++) {
-                    arr[i] = (Math.log(m * (arr[i] - x1) + y1) - Math.log(y1)) / m;
+                    arr[i] = (Math.log(m * (arr[i] - x1) + y1) - Math.log(y1)) / m; // If it's too close to a line, computer it like a line
                 }
             }
         } else {
@@ -393,7 +401,7 @@ class ExponentialAutomationSegment extends AutomationSegment {
 
             for (let i = 0; i < arr.length; i++) {
                 let xfd = arr[i] - x1;
-                arr[i] = (Math.log((a * (Math.pow(rycp, xfd / xd) - 1) + b) / b) - xfd * log_v) / den;
+                arr[i] = (Math.log((a * (Math.pow(rycp, xfd / xd) - 1) + b) / b) - xfd * log_v) / den; // derived in (1)
             }
         }
     }
@@ -412,25 +420,14 @@ class ExponentialAutomationSegment extends AutomationSegment {
 
     scaleX(x) {
         this.x1 *= x;
-        this.x2 *= x;
+        this.length *= Math.abs(x);
 
-        if (x === 0)
-            throw new Error("Can't scale by a factor of 0");
-
-        this.x1 *= x;
-        this.x2 *= x;
-
-        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
-            let tmp = this.x2;
-
-            this.x2 = this.x1;
-            this.x1 = tmp;
-            tmp = this.y2;
+        if (x < 0) { // flip the values in case the scaling caused the segment to flip over unceremoniously
+            let tmp = this.y2;
             this.y2 = this.y1;
             this.y1 = tmp;
-        } else if (this.x2 === this.x1) {
-            throw new Error("Scaling resulted in the collapsing of the ExponentialAutomationSegment due to float imprecision.");
         }
+
         return this;
     }
 
@@ -448,6 +445,12 @@ class ExponentialAutomationSegment extends AutomationSegment {
 
 const quadraticAutomationEps = 10e-9;
 
+/*
+This does a quadratic interpolation between (x1, y1), ((x1 + x2) / 2, yc), (x2, y2), which is uniquely defined.
+Note that unlike the exp case, yc can be outside of y1 to y2, and the boundaries of this segment may be beyond as well.
+If you wish to restrict it so that the entire segment lies between y1 and y2, restrict yc between (y1+3*y2)/4 and
+(3*y1+y2)/4.
+ */
 class QuadraticAutomationSegment extends AutomationSegment {
     constructor(x1,y1,x2,y2,yc) {
         if (x2 === x1)
@@ -456,20 +459,21 @@ class QuadraticAutomationSegment extends AutomationSegment {
         this.yc = yc;
     }
 
-    static get _disallowZeroLength() {
-        return false;
+    static get _disallowZeroLength() { // causes div by 0 errors if not prohibited
+        return true;
     }
 
-    _n() {
+    _n() { // recurring constant
         let m = (this.x1 + this.x2) / 2;
-        return 4 * this.x2 * this.yc + 4 * this.x1 * this.yc - 2 * m * this.y2 - 2 * m * this.y1 - 2 * this.x1 * this.y2 - 2 * this.y1 * this.x2;
+        return 4 * this.x2 * this.yc + 4 * this.x1 * this.yc -
+            2 * m * this.y2 - 2 * m * this.y1 - 2 * this.x1 * this.y2 - 2 * this.y1 * this.x2;
     }
 
-    _d() {
+    _d() { // recurring constant
         return 4 * this.y1 + 4 * this.y2 - 8 * this.yc;
     }
 
-    ymin() {
+    ymin() { // derived in (1)
         let d = this._d();
 
         if (d <= 0)
@@ -484,7 +488,7 @@ class QuadraticAutomationSegment extends AutomationSegment {
         }
     }
 
-    ymax() {
+    ymax() { // derived in (1)
         let d = this._d();
 
         if (d >= 0)
@@ -508,7 +512,7 @@ class QuadraticAutomationSegment extends AutomationSegment {
 
         for (let i = 0; i < arr.length; i++) {
             let x = arr[i];
-            arr[i] = (2 * (x - m) * (y1 * (x - x2) + y2 * (x-x1)) - 4 * yc * (x - x1) * (x - x2)) / xd;
+            arr[i] = (2 * (x - m) * (y1 * (x - x2) + y2 * (x-x1)) - 4 * yc * (x - x1) * (x - x2)) / xd; // derived in (1)
         }
     }
 
@@ -523,7 +527,7 @@ class QuadraticAutomationSegment extends AutomationSegment {
 
 
         for (let i = 0; i < arr.length; i++) {
-            arr[i] = (d * arr[i] + n) / (xd2);
+            arr[i] = (d * arr[i] + n) / (xd2); // derived in (1)
         }
     }
 
@@ -544,7 +548,7 @@ class QuadraticAutomationSegment extends AutomationSegment {
         for (let i = 0; i < arr.length; i++) {
             let x = arr[i];
 
-            arr[i] = (d * (x * x * x - x1c) + n * (x * x - x1s) + c1 * (x - x1)) / xd;
+            arr[i] = (d * (x * x * x - x1c) + n * (x * x - x1s) + c1 * (x - x1)) / xd; // derived in (1)
         }
     }
 
@@ -562,32 +566,32 @@ class QuadraticAutomationSegment extends AutomationSegment {
 
 
         if (Math.abs(a) < quadraticAutomationEps) {
-            if (Math.abs(b) < quadraticAutomationEps) {
+            if (Math.abs(b) < quadraticAutomationEps) { // too much like a constant, derived in (1)
                 for (let i = 0; i < arr.length; i++)
                     arr[i] = (arr[i] - x1) / c;
             }
             for (let i = 0; i < arr.length; i++)
-                arr[i] = (Math.log(b * arr[i] + c) - Math.log(b * x1 + c)) / b;
+                arr[i] = (Math.log(b * arr[i] + c) - Math.log(b * x1 + c)) / b; // too much line a line, derived in (1)
         }
 
-        let q = b * b - 4 * a * c;
+        let q = b * b - 4 * a * c; // discriminant
 
         if (q === 0) {
             let c1 = 1 / (2 * a * x1 + b);
             for (let i = 0; i < arr.length; i++)
-                arr[i] = -2 * (1 / (2 * a * arr[i] + b) + c1);
+                arr[i] = -2 * (1 / (2 * a * arr[i] + b) + c1); // q=0, derived in (1)
         } else if (q < 0) {
             let sq = Math.sqrt(-q);
             let c1 = -Math.atan((2 * a * this.x1 + b) / sq);
 
             for (let i = 0; i < arr.length; i++)
-                arr[i] = 2 * (Math.atan((2 * a * arr[i] + b) / sq) + c1) / sq;
+                arr[i] = 2 * (Math.atan((2 * a * arr[i] + b) / sq) + c1) / sq; // negative discriminant, derived in (1)
         } else {
             let sq = Math.sqrt(q);
             let c1 = Math.atanh((2 * a * this.x1 + b) / sq);
 
             for (let i = 0; i < arr.length; i++)
-                arr[i] = 2 * (-Math.atanh((2 * a * x + b) / sq) + c1) / sq;
+                arr[i] = 2 * (-Math.atanh((2 * a * x + b) / sq) + c1) / sq; // positive discriminant, derived in (1)
         }
     }
 
@@ -605,25 +609,14 @@ class QuadraticAutomationSegment extends AutomationSegment {
 
     scaleX(x) {
         this.x1 *= x;
-        this.x2 *= x;
+        this.length *= Math.abs(x);
 
-        if (x === 0)
-            throw new Error("Can't scale by a factor of 0");
-
-        this.x1 *= x;
-        this.x2 *= x;
-
-        if (this.x2 < this.x1) { // flip the values in case the scaling caused the segment to flip over unceremoniously
-            let tmp = this.x2;
-
-            this.x2 = this.x1;
-            this.x1 = tmp;
-            tmp = this.y2;
+        if (x < 0) { // flip the values in case the scaling caused the segment to flip over unceremoniously
+            let tmp = this.y2;
             this.y2 = this.y1;
             this.y1 = tmp;
-        } else if (this.x2 === this.x1) {
-            throw new Error("Scaling resulted in the collapsing of the QuadraticAutomationSegment due to float imprecision.");
         }
+
         return this;
     }
 
@@ -639,7 +632,7 @@ class QuadraticAutomationSegment extends AutomationSegment {
     }
 }
 
-function isSorted(arr) {
+function isSorted(arr) { // utility function to check if an array is sorted or not
     let prev = -Infinity;
     for (let i = 0; i < arr.length; i++) {
         if (prev < arr[i])
@@ -650,6 +643,50 @@ function isSorted(arr) {
     return true;
 }
 
+/*
+The generalized automation class. Simply consists of an array of segments, along with some utility functions and
+crucially, a function update() which uses the segments' length data to rearrange them into their uniquely defined x
+positions based on their order in the array. Also implements getValues, getDerivatives, getIntegrals, getTimeIntegrals
+in the array format as shown above.
+
+How to make an Automation: eventually there will be an easy way to do this, but it's already not too bad:
+
+1. Create an automation instance (new Automation())
+2. Add segments to it with addSegment:
+
+automation.addSegment(new ConstantAutomationSegment(*0*, *1*, 5)); // constant value of 5 from 0 to 1
+automation.addSegment(new LinearAutomationSegment(*1*, 5, *6*, 10)); // linear interpolation from 5 to 10 from x = 1 to x = 6
+
+Note that the x values (indicated in asterisks) don't really matter, though I find they help me visualize what the automation
+will ultimately look like. Instead, only the length information is used when justifying the automation segments into the correct
+position.
+
+How to retrieve values:
+
+Performant Way:
+
+1. Create a Float32Array or Float64Array of the values (or derivatives, etc.) which you want to compute.
+
+array = new Float32Array([0,1,2,3,4,5,6,7,8,9]);
+
+2. Call the associated function, passing the array and checking the value "sorted" if it's sorted (sorted float arrays
+HUGELY improve performance because of the algorithm and ability to use subarrays)
+
+automation.getValues(array, true), or automation.getDerivatives(array, true), etc.
+
+3. Array will now be filled up with the values
+
+array
+-> [5, 5, 6, 7, 8, 9, 10, 10, 10, 10]
+
+Slow but Convenient Way:
+
+1. Call the function valueAt (or derivativeAt, etc.) to evaluate that function at a point x:
+
+array.derivativeAt(0.5) -> 0
+
+This is bad because it can't take advantage of the succulent algorithms, but it's okay for certain tasks.
+ */
 class Automation {
     constructor(segments = []) {
         if (!Array.isArray(segments))
@@ -659,6 +696,7 @@ class Automation {
     }
 
     ymin() {
+        // Find the minimum of all segments
         let minV = Infinity;
         let segments = this.segments;
 
@@ -673,6 +711,7 @@ class Automation {
     }
 
     ymax() {
+        // Find the maximum of all segments
         let maxV = Infinity;
         let segments = this.segments;
 
@@ -686,22 +725,22 @@ class Automation {
         return maxV;
     }
 
-    get segCount() {
+    get segCount() { // number of segments
         return this.segments.length;
     }
 
-    get length() {
+    get length() { // formula given in (1)
         return this.segCount() > 0 ? this.getSegment(this.segCount() - 1).x2 : 0;
     }
 
-    getSegment(i) {
+    getSegment(i) { // returns the ith segment
         if (0 <= i && i < this.segments.length) {
             return this.segments[i];
         }
         throw new Error(`Index ${i} out of bounds.`);
     }
 
-    setSegment(i, seg) {
+    setSegment(i, seg) { // sets the ith segment to seg, then updates
         if (0 <= i && i < this.segments.length) {
             this.segments[i] = seg;
         } else {
@@ -713,7 +752,7 @@ class Automation {
         return this;
     }
 
-    insertSegment(i, seg) {
+    insertSegment(i, seg) { // insert seg at index i (i = segCount() will append it at the end), then update
         if (0 <= i && i <= this.segments.length) {
             this.segments.splice(i, 0, seg);
         } else {
@@ -725,7 +764,7 @@ class Automation {
         return this;
     }
 
-    removeSegment(i) {
+    removeSegment(i) { // remove the segment with index i, then update
         if (0 <= i && i < this.segments.length) {
             this.segments.splice(i, 1);
         }
@@ -735,7 +774,7 @@ class Automation {
         return this;
     }
 
-    removeSegmentIf(func) {
+    removeSegmentIf(func) { // remove a segment if they satisfy a certain boolean function, then update
         let segments = this.segments;
 
         for (let i = segments.length - 1; i >= 0; i--) {
@@ -747,7 +786,7 @@ class Automation {
         return this;
     }
 
-    addSegment(seg) {
+    addSegment(seg) { // append a segment (most often used probably)
         this.segments.push(seg);
 
         this.update();
@@ -755,12 +794,12 @@ class Automation {
         return this;
     }
 
-    update() {
+    update() { // update function
         let segments = this.segments;
-        let x = 0;
+        let x = 0; // start at x = 0
 
         for (let i = 0; i < segments.length; i++) {
-            segments[i].x1 = x;
+            segments[i].x1 = x; // set the starting x1 value to the x2 value of the previous segment, 0 if it doesn't exist
             x = segments[i].x2;
         }
     }
@@ -772,52 +811,58 @@ class Automation {
             // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
 
             let j = 0, seg, x2, start_j, min, max;
+            // j is the current array value that's gonna be computed next
 
             for (let i = 0; i < segments.length; i++) {
-                seg = segments[i];
+                seg = segments[i]; // for each segment...
 
-                if ((x2 = seg.x2) <= arr[j])
+                if ((x2 = seg.x2) <= arr[j]) // if x2 is before j, then this segment is irrelevant to our calculations, so continue
                     continue;
 
-                start_j = j;
+                start_j = j; // if we're here, then j is before x2 (and j is greater than x1 because otherwise it would have been consumed in the previous iteration)
 
                 min = j;
                 max = arr.length - 1;
                 j = Math.floor((min + max) / 2);
 
-                if (arr[max] < x2) {
+                // Perform a binary search on arr to find the place where we jump to the next segment
+
+                if (arr[max] < x2) { // if that place is the end of the array, then set j to the end of the array and skip the binary search
                     j = max + 1;
-                } else while (true) {
+                } else while (true) { // otherwise, do the binary search...
                     if (arr[j] < x2) {
                         min = j;
                     } else {
                         max = j;
-                        if (j === 0 || arr[j - 1] < x2)
-                            break;
+                        if (j === 0 || arr[j - 1] < x2) // break when we get to an arr[j] >= x2 where there is no previous array value, or the previous array value is smaller than x2
+                            break; // note that this takes care of duplicate arr[j] values
                     }
 
-                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                    j = (min + max + 1) >> 1; // this is equivalent to ceil(avg(min, max)) for integer min, max, but avoids float division (lol)
                 }
 
-                seg.getValues(arr.subarray(start_j, j));
-                if (j === arr.length)
+                seg.getValues(arr.subarray(start_j, j)); // The crucial part of making this algorithm fast: create a subarray view from start_j to j and fill them up with the segment values
+                // Because the array is sorted, these are the only values that have to be computed for this segment, and the fact that this is a TypedArray makes things way faster
+
+                if (j === arr.length) // if we're finished with j, we can break out
                     break;
             }
 
             if (j < arr.length) {
-                // Fill up remaining values
+                // Fill up remaining values if we exhausted the segments without exhausting j, meaning that array contains some values beyond the automation
+                // well, not really beyond, but outside of the specially defined ranges. we just fill this up with the last defined value
 
                 let lastVal = segments[segments.length - 1].y2;
                 arr.subarray(j).fill(lastVal);
             }
-        } else {
+        } else { // Ah, the shitty algorithm when it's not sorted or not a TypedArray
             for (let i = 0; i < arr.length; i++) {
-                let x = arr[i];
+                let x = arr[i]; // For each array item...
 
                 let min = 0;
                 let max = segments.length-1;
                 let mid = Math.floor((min + max) / 2);
-                let loop = 50; // how many searches before it gives up
+                let loop = 50; // how many binary searches before it gives up
 
                 if (x <= 0)
                     x = 0;
@@ -826,12 +871,12 @@ class Automation {
                     mid = 0;
                     loop = false;
                 } else if (x > segments[max].x2) {
-                    // x is beyond segment
+                    // x is beyond any segment
                     mid = -1;
                     loop = false;
                 }
 
-                while (loop--) {
+                while (loop--) { // do a binary search for the containing segment
                     let seg = segments[mid];
                     let x1 = seg.x1, x2 = seg.x2;
 
@@ -847,20 +892,17 @@ class Automation {
                 }
 
                 if (mid === -1)
-                    arr[i] = segments[max].y2;
-                else {
-                    arr[i] = segments[mid].valueAt(arr[i]);
-                }
+                    arr[i] = segments[max].y2; // set it to the last value
+                else
+                    arr[i] = segments[mid].valueAt(arr[i]); // this is part of why this algorithm is so slow; set arr[i] to the associated value
             }
         }
     }
 
-    getDerivatives(arr, sorted = false) {
+    getDerivatives(arr, sorted = false) { // Identical to the previous algorithm, except that we may want to reject corner values (TODO make decision on this with BC)
         let segments = this.segments;
 
         if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
-            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
-
             let j = 0, seg, x2, start_j, min, max;
 
             for (let i = 0; i < segments.length; i++) {
@@ -893,6 +935,7 @@ class Automation {
 
                 seg.getDerivatives(subarray);
 
+                // The NaN section that we may or may not want to include
                 /*for (let i = 0, item; i < subarray.length; i++) { // set undefined derivatives to NaN
                     item = subarray[i];
                     if (item === x1 || item === x2)
@@ -945,7 +988,7 @@ class Automation {
                 }
 
                 if (mid === -1)
-                    arr[i] = 0;
+                    arr[i] = 0; // In this case the derivative after the defined segments is just 0
                 else {
                     arr[i] = segments[mid].derivativeAt(arr[i]);
                 }
@@ -953,20 +996,20 @@ class Automation {
         }
     }
 
-    getIntegrals(arr, sorted = false) {
+    getIntegrals(arr, sorted = false) { // similar to the previous algorithms, but we need to sum up all the previous integrals
         let segments = this.segments;
 
         if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
             // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
 
             let j = 0, seg, x2, start_j, min, max, tmp, seg_i, subarray;
-            let running_integral = 0;
+            let running_integral = 0; // the running integral value so far (all previous segments summed up)
 
             for (let i = 0; i < segments.length; i++) {
                 seg = segments[i];
 
                 if ((x2 = seg.x2) <= arr[j]) {
-                    running_integral += seg.integralAt(seg.x2);
+                    running_integral += seg.integralAt(seg.x2); // we need to add to the running integral even if we skip a segment for evaluation to arr
 
                     continue;
                 }
@@ -988,25 +1031,25 @@ class Automation {
                             break;
                     }
 
-                    j = (min + max + 1) >> 1; // ceil(avg(min, max))
+                    j = (min + max + 1) >> 1;
                 }
 
-                if (j < arr.length) {
+                if (j < arr.length) { // if there's space to squeeze in one extra value than usual...
+                    subarray = arr.subarray(start_j, j + 1); // we use j + 1 here to take advantage of the extra space
+                    tmp = arr[j];  // keep track of the ACTUAL value
+                    arr[j] = seg.x2; // set it to seg.x2, which is the end of the segment, and will therefore evaluate to the integral under the entire segment
 
-                    subarray = arr.subarray(start_j, j + 1);
-                    tmp = arr[j];
-                    arr[j] = seg.x2;
+                    seg.getIntegrals(subarray); // get the integrals
 
-                    seg.getIntegrals(subarray);
-                    seg_i = arr[j];
-                    arr[j] = tmp;
+                    seg_i = arr[j]; // seg_i is the value of the integral of the segment
+                    arr[j] = tmp; // set that value we used
 
-                    for (let i = 0; i < subarray.length - 1; i++) {
+                    for (let i = 0; i < subarray.length - 1; i++) { // for every element in the subarray besides the last (accessory) element, add up the previous segment integrals
                         subarray[i] += running_integral;
                     }
 
-                    running_integral += seg_i;
-                } else { // we don't have to continue keeping track of the running integral because there's no more values to compute!
+                    running_integral += seg_i; // add this segment's integral to the running total
+                } else { // we don't have to continue keeping track of the running integral because there's no more values to compute, so no need to squeeze!
                     subarray = arr.subarray(start_j, j);
                     seg.getIntegrals(subarray);
 
@@ -1019,14 +1062,14 @@ class Automation {
             }
 
             if (j < arr.length) {
-                // Fill up remaining values
+                // Fill up remaining values if needed, but we're gonna have to do a bit of calculation
                 let last_seg = segments[segments.length - 1];
 
                 let y2 = last_seg.y2;
                 let x2 = last_seg.x2;
 
                 for (let i = j; i < arr.length; i++) {
-                    arr[i] = running_integral + (arr[i] - x2) * y2;
+                    arr[i] = running_integral + (arr[i] - x2) * y2; // add up the running integral plus the rectangle with sides y2 and x - x2
                 }
             }
         } else {
@@ -1035,7 +1078,7 @@ class Automation {
             for (let i = 0; i < segments.length; i++) {
                 let seg = segments[i];
 
-                integrals[i] = seg.integralAt(seg.x2) + (i > 0 ? integrals[i-1] : 0);
+                integrals[i] = seg.integralAt(seg.x2) + (i > 0 ? integrals[i-1] : 0); // precompute all integral sums into a floatarray
             }
 
             for (let i = 0; i < arr.length; i++) {
@@ -1044,7 +1087,7 @@ class Automation {
                 let min = 0;
                 let max = segments.length - 1;
                 let mid = Math.floor((min + max) / 2);
-                let loop = 50; // how many searches before it gives up
+                let loop = 50;
 
                 if (x <= 0)
                     x = 0;
@@ -1053,7 +1096,6 @@ class Automation {
                     mid = 0;
                     loop = false;
                 } else if (x > segments[max].x2) {
-                    // x is beyond segment
                     mid = -1;
                     loop = false;
                 }
@@ -1076,22 +1118,20 @@ class Automation {
                 if (mid === -1) {
                     let last_seg = segments[segments.length - 1];
 
-                    arr[i] = integrals[integrals.length - 1] + (arr[i] - last_seg.x2) * last_seg.y2;
+                    arr[i] = integrals[integrals.length - 1] + (arr[i] - last_seg.x2) * last_seg.y2; // add up the last integral sum with the rectangle
                 } else {
-                    arr[i] = segments[mid].integralAt(arr[i]) + (mid > 0 ? integrals[mid - 1] : 0);
+                    arr[i] = segments[mid].integralAt(arr[i]) + (mid > 0 ? integrals[mid - 1] : 0); // compute the integral under the segment, then add it to the relevant integral for prev. segmts
                 }
             }
         }
     }
 
-    getTimeIntegrals(arr, sorted = false) {
+    getTimeIntegrals(arr, sorted = false) { // basically identical to the previous one, just asking for timeIntegrals (which is generally gonna be a lot slower!)
         this._timeIntegralCheck();
 
         let segments = this.segments;
 
         if ((arr.constructor === Float32Array || arr.constructor === Float64Array) && (sorted || isSorted(arr))) {
-            // Special algorithm when the array is a typed array and sorted to reduce copies by a lot
-
             let j = 0, seg, x2, start_j, min, max, tmp, seg_i, subarray;
             let running_integral = 0;
 
@@ -1139,7 +1179,7 @@ class Automation {
                     }
 
                     running_integral += seg_i;
-                } else { // we don't have to continue keeping track of the running integral because there's no more values to compute!
+                } else {
                     subarray = arr.subarray(start_j, j);
                     seg.getTimeIntegrals(subarray);
 
@@ -1177,7 +1217,7 @@ class Automation {
                 let min = 0;
                 let max = segments.length - 1;
                 let mid = Math.floor((min + max) / 2);
-                let loop = 50; // how many searches before it gives up
+                let loop = 50;
 
                 if (x <= 0)
                     x = 0;
@@ -1186,7 +1226,6 @@ class Automation {
                     mid = 0;
                     loop = false;
                 } else if (x > segments[max].x2) {
-                    // x is beyond segment
                     mid = -1;
                     loop = false;
                 }
@@ -1245,18 +1284,20 @@ class Automation {
         this.getTimeIntegrals(arr);
         return arr[0];
     }
-}
 
-let automation = new Automation();
+    scaleX(x) {
+        if (x === 0)
+            throw new Error("Can't scale by factor of 0");
 
-//let arr = new Float32Array([...Array(1e7).keys()].map(x => 10 * x / 1e7));
-let arr = new Float32Array([...Array(50).keys()].map(x => x / 3));
+        this.segments.forEach(segment => segment.scaleX(x));
 
-automation.addSegment(new ConstantAutomationSegment(0, 4, 60));
-automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 70));
-automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 64));
-automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40));
+        if (x < 0) // reverse the segment order if the scale factor is negative
+            this.segments.reverse();
 
-function test() {
-    automation.getTimeIntegrals(arr);
+        this.update();
+    }
+
+    scaleY(y) {
+        this.segments.forEach(segment => segment.scaleY(y));
+    }
 }

@@ -114,6 +114,21 @@ function runTests() {
     } else {
         console.log(`Passed all ${TESTS.length} tests!`);
     }
+
+
+    let automation = new Automation();
+
+//let arr = new Float32Array([...Array(1e7).keys()].map(x => 10 * x / 1e7));
+    let arr = new Float32Array([...Array(50).keys()].map(x => x / 3));
+
+    automation.addSegment(new ConstantAutomationSegment(0, 4, 60));
+    automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 70));
+    automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 64));
+    automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40));
+
+    function test() {
+        automation.getTimeIntegrals(arr);
+    }
 }
 
 document.addEventListener("keypress", runTests);
