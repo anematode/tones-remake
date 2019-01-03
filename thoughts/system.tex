@@ -1,0 +1,33 @@
+\documentclass{article}
+
+\begin{document}
+
+Tones.Context -> AudioContext
+Tones.System
+  get/set muted
+  get/set volume
+  instruments: dict of instruments and mixers with ids (id : {instrument: instruments, mixer: mixers})
+  getInstrument(id)
+  timeline_elements: array of patterns, automations, audios
+  timeline_elements_instances: array of actual instances of patterns, automations and audios
+  tempo: UserParameter
+  buses: array of buses (default number of buses: 100)
+  connectToBus(mixer, bus)
+  disconnectToBus(mixer, bus)
+  master: Bus that wont let you connect to others
+  start: position of playhead
+  loopStart: position of loop start
+  loopEnd: position of loop end
+  looping: should we loop this?
+  play(): play the shit
+  pause(): pause the playback keeping the play head at the same place
+  stop(): stop the playback; return the playhead to play()
+  get/set playhead
+  render(): start an asynchronous process to convert the entire piece into an AudioBuffer
+  audio_input: Node
+  midi_input: MIDI
+  json()
+  static fromJSON <-- we'll need to store audio data separately
+  time_signature: UserParameter
+\end{document}
+

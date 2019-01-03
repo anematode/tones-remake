@@ -117,7 +117,7 @@ $y_2$: ending y value
 
 Functions:
 
-constructor($x_1$, $y_1$, $x_2$, $y_2$): class constructor, rejecting $x_2 < x_1$
+constructor(params = {$x_1$: 0, $y_1$: 0, $x_2$: $x_1 + 1$, $y_2$ : $y_1+1$}): class constructor, rejecting $x_2 < x_1$
 
 length(): returns $x_2 - x_1$
 
@@ -174,7 +174,7 @@ c: the value of the constant parameter
 
 Functions:
 
-constructor($x_1$, $x_2$, c): calls super($x_1$, c, $x_2$, c)
+constructor(params = {$x_1$: 0, $x_2$: $x_1$+1, $c$: 0): calls super($x_1$, $c$, $x_2$, $c$)
 
 ymin: c
 
@@ -208,7 +208,7 @@ No extra properties.
 
 Functions:
 
-constructor(...args): rejects $x_2 = x_1$, then calls super(...args)
+constructor(params = {}): rejects $x_2 = x_1$, then calls super(...args)
 
 ymin: $\min\{y_1, y_2\}$
 
@@ -372,7 +372,7 @@ $$\frac{y_c'^2}{1-2y_c'}\left(\left(\frac{1}{y_c'}-1\right)^{\frac{2(x-x_1)}{x_2
 
 It may be a good idea to precompute many of these constants. In any case, let us continue the specification.
 
-constructor(x1, y1, x2, y2, yc): calls super(x1, y1, x2, y2), rejects $x2 = x1$
+constructor(params = {$x_1$, $y_1$, $x_2$, $y_2$, $y_c$: $(y_1+y_2) / 2$}): calls super(x1, y1, x2, y2), rejects $x2 = x1$
 
 ymin: $\min\{y_1,y_2\}$
 
@@ -501,7 +501,7 @@ $$x= - \frac{4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2}{4y_1+4y_2-8y_c}$$
 
 Functions:
 
-constructor($x_1$, $y_1$, $x_2$, $y_2$, $y_c$): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_2 = x_1$
+constructor(params = {$x_1$, $y_1$, $x_2$, $y_2$, $y_c$: $(y_1+y_2)/2$}): calls super($x_1$, $y_1$, $x_2$, $y_2$), rejects $x_2 = x_1$
 
 Let $m=(x_1+x_2)/2$, $n=4x_2y_c+4x_1y_c-2my_2-2my_1-2x_1y_2-2y_1x_2$, and $d=4y_1+4y_2-8y_c$.
 

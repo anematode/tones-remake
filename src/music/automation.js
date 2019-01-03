@@ -1,3 +1,5 @@
+import * as utils from "../utils.js";
+
 /* An automation defines a mapping x -> y taking in a beat or time for x and outputting the value of a parameter at that time
 An automation is composed of a series of segments and has no gaps; the evaluated value at an interface is the first value of
 the segment directly after this interface. Furthermore, values beyond the end of the automation are the last defined value of
@@ -10,7 +12,12 @@ Written by anematode, 1/2/2019
 
 /* The parent class for all automation segments, defined by a starting (x1, y1), a positive length, and an ending y2. */
 class AutomationSegment {
-    constructor(x1, y1, x2, y2) {
+    constructor(params = {}) {
+        let x1 = utils.select(params.x1, 0);
+        let y1 = utils.select(params.y1, 0);
+        let x2 = utils.select(params.x2, x1 + 1);
+        let y2 = utils.select(params.y2, y1 + 1);
+
         if (x2 < x1) // Reject x2 < x1
             throw new Error("x2 must be greater than or equal to x1.");
 
@@ -83,8 +90,10 @@ class AutomationSegment {
 Automation segment that holds a constant value c between x1 and x2
  */
 class ConstantAutomationSegment extends AutomationSegment {
-    constructor(x1, x2, c) {
-        super(x1, c, x2, c);
+    constructor(params = {}) {
+        let c = utils.select(params.c, 0);
+        super({x1: params.x1, y1: c, x2: params.x2, y2: c});
+
         this.c = c; // the constant value
     }
 
@@ -171,10 +180,8 @@ slightly faster than those two just because this doesn't have to check for certa
 use basically the same formula as this does already, so there is little difference in actual value computational time).
  */
 class LinearAutomationSegment extends AutomationSegment {
-    constructor(x1, y1, x2, y2) {
-        if (x2 === x1)
-            throw new Error("LinearAutomationSegment can't have two identical x boundaries.");
-        super(x1, y1, x2, y2);
+    constructor(params = {}) {
+        super(params);
     }
 
     static get _disallowZeroLength() { // disallow 0 length segments, because this makes the derivative implosive
@@ -279,12 +286,10 @@ Note: if yc = sqrt(y1 * y2) (geometric mean of the two y values), then the inter
 it will specify a frequency increase that is linear pitch-wise, which is useful
  */
 class ExponentialAutomationSegment extends AutomationSegment {
-    constructor(x1, y1, x2, y2, yc) {
-        if (x2 === x1)
-            throw new Error("ExponentialAutomationSegment can't have two identical x boundaries.");
-        super(x1, y1, x2, y2);
+    constructor(params = {}) {
+        super(params);
 
-        this.yc = yc;
+        this.yc = utils.select(params.yc, (this.y1 + this.y2) / 2, 0.5);
     }
 
     get yc() {
@@ -452,11 +457,10 @@ If you wish to restrict it so that the entire segment lies between y1 and y2, re
 (3*y1+y2)/4.
  */
 class QuadraticAutomationSegment extends AutomationSegment {
-    constructor(x1,y1,x2,y2,yc) {
-        if (x2 === x1)
-            throw new Error("QuadraticAutomationSegment can't have two identical x boundaries.");
-        super(x1, y1, x2, y2);
-        this.yc = yc;
+    constructor(params = {}) {
+        super(params);
+
+        this.yc = utils.select(params.yc, (this.y1 + this.y2) / 2, 0.5);
     }
 
     static get _disallowZeroLength() { // causes div by 0 errors if not prohibited
@@ -686,6 +690,8 @@ Slow but Convenient Way:
 array.derivativeAt(0.5) -> 0
 
 This is bad because it can't take advantage of the succulent algorithms, but it's okay for certain tasks.
+
+Note: Automation takes in an array of segments rather than a parameter object.
  */
 class Automation {
     constructor(segments = []) {

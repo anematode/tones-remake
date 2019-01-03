@@ -68,13 +68,14 @@ As you add segments, you may notice that their x values change. That's because w
 
 Here's an Automation from scratch:
 
-```js
+```javascript
 let automation = new Automation();
 
 automation.addSegment(new ConstantAutomationSegment(0, 4, 60)); // length 4
 automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 70)); // length 2
 automation.addSegment(new ExponentialAutomationSegment(0, 60, 2, 80, 64)); // length 2
-automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40)); // length 4```
+automation.addSegment(new LinearAutomationSegment(0, 80, 4, 40)); // length 4
+```
 
 Notice that the x values we gave the segments, taken literally, would make all the segments intersect! But as we add segments, they get shifted appropriately. In this case, the new starting x values for each will be:
 
@@ -82,7 +83,7 @@ Notice that the x values we gave the segments, taken literally, would make all t
 
 An illustration of Automation:
 
-```js
+```javascript
 automation.length // -> 12
 automation.ymin() // -> 40
 automation.ymax() // -> 80
@@ -97,7 +98,7 @@ This is what the automation actually looks like (note that the first peak should
 
 If you want to get a large number of valueAt (or derivativeAt, etc.) values, say, for converting to SVG, you should use the getValues method. First, construct a sorted float array (Float32Array and Float64Array are both acceptable) containing the x values where you want to evaluate the segment. Then call the getValues function on that array, and it will overwrite the array's values with the corresponding automation values. Note that the array must be a FloatArray and it must be SORTED, otherwise it will default to a much, much slower algorithm that's not much faster than just doing valueAt for each value. Here's an example:
 
-```js
+```javascript
 let array = new Float64Array([0,0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]);
 
 automation.getValues(array);
