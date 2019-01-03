@@ -286,4 +286,74 @@ function noteTo12TET(note, a4 = 440) {
     return a4 * Math.pow(2, (note - 69) / 12);
 }
 
-export {nameToNote, noteToName, KeyboardPitches, KeyboardIntervals, nameToInterval, intervalToName, noteTo12TET};
+class KeyboardNote {
+    constructor(params = {}) {
+        let pitch = utils.select(params.pitch, "A4");
+        if (pitch !== 0 && !parseInt(pitch)) {
+            pitch = nameToNote(pitch);
+        } else pitch = parseInt(pitch);
+
+        this.pitch = pitch;
+        this.start = utils.select(params.start, 0);
+        this.length = utils.select(params.length, 1);
+        if (params.end || params.end === 0) {
+            this.end = params.end;
+        }
+
+        this.vel = utils.select(params.vel, 1);
+        this.pan = utils.select(params.pan, 0);
+        this.fine = utils.select(params.fine, 0);
+        this.custom = utils.select(params.custom, {});
+    }
+
+    get end() {
+        return this.start + this.length;
+    }
+
+    set end(x) {
+        if (x >= this.start) {
+            this.length = x - this.start;
+        } else throw new Error(`Invalid end value ${x}`);
+    }
+
+    translateX(x) {
+        this.start += x;
+        return this;
+    }
+
+    scaleX(x) {
+        utils.assert(x > 0, "Can't scale note by nonpositive scaling factor");
+        this.length *= x;
+        this.start *= x;
+        return this;
+    }
+
+    transpose(semitones) {
+        this.pitch += semitones;
+        return this;
+    }
+
+    clone() {
+        let note = new KeyboardNote(this); // so we don't have to create an intermediate parameter object
+        note.custom = {...this.custom};
+        return note;
+    }
+
+    toJSON() {
+        return {p: this.pitch, s: this.start, l: this.length, v: this.vel, n: this.pan, f: this.fine, c: this.custom};
+    }
+
+    static fromJSON(json) {
+        return new KeyboardNote({
+            pitch: json.p,
+            start: json.s,
+            length: json.l,
+            vel: json.v,
+            pan: json.n,
+            fine: json.f,
+            custom: json.c
+        });
+    }
+}
+
+export {nameToNote, noteToName, KeyboardPitches, KeyboardIntervals, nameToInterval, intervalToName, noteTo12TET, KeyboardNote};

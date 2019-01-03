@@ -49,4 +49,69 @@ noteTo12TET(n, a4 = 440) $:= a4 \cdot 2^{(n - 69)/12}.$
 
 There's also the concept of a KeyboardInterval, which is just a distance between two KeyboardPitches. Obviously, the KeyboardInterval between $a$ and $b$ is just $|a-b|$. For working with this there are the functions nameToInterval and intervalToName, but I don't expect them to be used and they are just an artifact from the old TONES, so I won't explain how they work here. Their algorithm is lengthy but straightforward. To get the value in cents of a KeyboardInterval \textbf{in 12 TET}, multiply by 100.
 
+\section{KeyboardNote}
+
+A KeyboardNote is a KeyboardPitch played at a certain time, with a certain length, and with certain parameters. Rather simple.
+
+Properties:
+
+pitch: KeyboardPitch of the note
+start: time (probably in beats) to start
+length: length (probably in beats) to hold the note
+vel: velocity (0 to 1 is standard range)
+pan: pan (-1 to 1 is standard)
+fine: small pitch adjustments in cents
+custom: object you can pass for custom properties
+get/set end: start + length
+
+Methods:
+
+constructor(params = {pitch: A4, start: 0, length: 1, vel: 1, pan: 0, fine: 0, custom: {}, [end]})
+translateX(x): shift it over by x units
+scaleX(x): scale it by a factor of x, rejecting x <= 0
+transpose(semitones): transpose it by some number of semitones
+clone(): return a cloned KeyboardNote, also copying (but not deep-copying) the custom property
+toJSON(): convert to JSON format. This isn't too complicated; we basically just return what "params" should be when constructing the note but with abbreviated names for compactness:
+
+pitch -> p, start -> s, length -> l, vel -> v, pan -> n, fine -> f, custom -> c
+
+static fromJSON(json): static function building a note from the aforementioned js object (in this case, it's basically the same as the constructor with different names)
+
+\section{KeyboardNoteGroup}
+
+A KeyboardNoteGroup is simply a sorted array of KeyboardNotes that represents a string of notes to play. It permits notes to intersect, and even notes to be on top of each other; dealing with that during playback will be a problem for the scheduler. Nevertheless, it will include a removeIntersections function for convenience (and for my algorithmic testing!).
+
+Properties:
+
+notes: array of KeyboardNotes, which will usually be sorted unless you mess with it directly, after which you should call sort()
+_sorted: internal checker for whether the array is sorted
+
+Methods:
+
+constructor(notes=[]): sets notes to given notes
+sort(): internally sort the keyboard notes in order of start time
+addNote(note, clone=false): add a note, asking whether to clone it
+get noteCount: number of notes
+deleteNote(note): remove a note; this will also remove duplicate notes. Returns true if it removed any notes, false if not
+deleteNoteIf(func): removes any notes which satisfy func; returns true if it removed any notes, false if not
+translateX(x): shift it over by x units
+scaleX(x): scale it by a factor of x, rejecting x <= 0
+reverse(): reverse the notegroup
+transpose(semitones): transpose it by some number of semitones
+apply(func): call the function on all notes
+some(func): check whether the function is satisfied for any notes
+all(func): check whether the function is satisfied for all notes
+minX(): minimum note x value
+maxX(): maximum note x value
+length(): diff between maxX and minX
+minPitch(): minimum note pitch (lowest note reached)
+maxPitch(): maximum note pitch (highest note reached)
+* generateNotes(start_x = -Infinity, end_x = Infinity): a generator yielding notes to play from start_x to end_x. Note that if start_x is in the middle of a note, the start of that note will be adjusted in the returned value to start at start_x instead. Similarly, end_x will tell the note to end at end_x if it cuts through the note. Notes ending on start_x will not be played; notes starting on end_x will also not be played. The original note objects may be returned, but only if they don't have to be adjusted; this function will not change the notes array at all.
+snip(start_x = -Infinity, end_x = Infinity): return a new KeyboardNoteGroup, copying all KeyboardNotes, from start_x to end_x and with the trimmings described in the previous function. Modifications of the original group will not change the snipped group after it's been snipped. Note that snip() serves as a clone function.
+join(group, clone=true, offsetX = maxX()): join group to this group starting at offsetX, modifying this group. If clone, then clone each copied note; if not, then just use the original objects (and thus the joined group will get modified)
+clone(): clone this group
+add(group, offsetX = maxX()): same as join, but must be cloned and return a new group
+repeat(times, repeatX = maxX()): repeat the notes, modifying the original group, with spacing of repeatX. Furthermore, an array with length $times-1$ can be passed to repeatX to change each repeat length
+toJSON(): convert to a JSON format, basically just {n: notes, s: _sorted}
+static fromJSON(json): construct a NoteGroup from JSON
 \end{document}
