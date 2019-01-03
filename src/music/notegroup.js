@@ -300,6 +300,113 @@ class KeyboardNoteGroup {
         return group;
     }
 
+    removeIntersections() {
+        if (!this._sorted) this.sort();
+
+        // step 1: set all but one for completely coincident notes (notes with the same pitch and start) to null
+        let notes = this.notes;
+        let ps_index = 0;
+        let prev_start = 0;
+        let dict = {};
+        let extraEgg = false;
+        let pitches = {};
+
+        for (let i = 0; i < notes.length || (extraEgg = !extraEgg); i++) {
+            let start = extraEgg ? Infinity : notes[i].start;
+
+            if (start !== prev_start) {
+                prev_start = start;
+                dict = {};
+                let needs_assessment = {};
+
+                for (let j = ps_index; j < i; j++) {
+                    let note = notes[j];
+
+                    if (dict[note.pitch] !== undefined) {
+                        dict[note.pitch].push(j);
+                        needs_assessment[note.pitch] = true;
+                    } else {
+                        dict[note.pitch] = [j];
+                    }
+                }
+
+                for (let pitch in needs_assessment) {
+                    if (!needs_assessment.hasOwnProperty(pitch)) continue;
+
+                    let notes_p = dict[pitch];
+                    let keep_l;
+                    let max_length = -Infinity;
+
+                    for (let l = 0; l < notes_p.length; l++) {
+                        let length = notes[notes_p[l]].length;
+                        if (length > max_length) {
+                            max_length = length;
+                            keep_l = l;
+                        }
+                    }
+
+                    for (let l = 0; l < notes_p.length; l++) {
+                        if (l === keep_l) { // this note is remaining, let's keep track of it for step 2
+                            let index = notes_p[l];
+                            let pitch = notes[index].pitch;
+
+                            if (pitches[pitch] !== undefined)
+                                pitches[pitch].push(index);
+                            else
+                                pitches[pitch] = [index];
+                            continue;
+                        }
+                        notes[notes_p[l]] = null;
+                    }
+                }
+
+                for (let pitch in dict) {
+                    if (!dict.hasOwnProperty(pitch)) continue;
+                    let notes = dict[pitch];
+
+                    if (notes.length === 1) { // not assessed
+                        if (pitches[pitch] !== undefined)
+                            pitches[pitch].push(notes[0]);
+                        else
+                            pitches[pitch] = [notes[0]];
+                    }
+                }
+
+                if (extraEgg)
+                    break;
+
+                ps_index = i;
+            }
+        }
+
+        // step 2: go through each pitch and trim them
+
+        for (let pitch in pitches) {
+            if (!pitches.hasOwnProperty(pitch)) continue;
+            let note_indices = pitches[pitch];
+
+            if (note_indices.length <= 1) continue;
+
+            let prev_end = -Infinity;
+
+            for (let i = 0; i < note_indices.length; i++) {
+                let note = notes[note_indices[i]];
+
+                if (note.start < prev_end) {
+                    notes[note_indices[i - 1]].end = note.start; // note that i >= 1 is guaranteed because nothing is smaller than -Infinity
+                }
+
+                prev_end = note.end;
+            }
+        }
+
+
+        // step 3: remove all nulls
+        this.deleteNoteIf(note => note === null);
+
+        return this;
+    }
+
     // TODO add intersection detection algorithm
 }
 
