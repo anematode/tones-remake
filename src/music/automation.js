@@ -111,6 +111,8 @@ class ConstantAutomationSegment extends AutomationSegment {
 
     getValues(arr) {
         arr.fill(this.c); // nice and fast
+
+        return this;
     }
 
     derivativeAt() {
@@ -119,6 +121,8 @@ class ConstantAutomationSegment extends AutomationSegment {
 
     getDerivatives(arr) { // flat lines have a derivative everywhere of 0
         arr.fill(0);
+
+        return this;
     }
 
     getIntegrals(arr) {
@@ -128,6 +132,8 @@ class ConstantAutomationSegment extends AutomationSegment {
         for (let i = 0; i < arr.length; i++) {
             arr[i] = c * (arr[i] - x1); // area of a rectangle with sides c and x - x1
         }
+
+        return this;
     }
 
     getTimeIntegrals(arr) {
@@ -139,6 +145,8 @@ class ConstantAutomationSegment extends AutomationSegment {
         for (let i = 0; i < arr.length; i++) {
             arr[i] = (arr[i] - x1) / c; // area of rectangle with sides 1/c and x - x1
         }
+
+        return this;
     }
 
     translateX(x) {
@@ -204,6 +212,8 @@ class LinearAutomationSegment extends AutomationSegment {
         for (let i = 0; i < arr.length; i++) {
             arr[i] = (arr[i] - x1) * slope + y1; // simple linear interpolation, shown in (1)
         }
+
+        return this;
     }
 
     derivativeAt() { // Note: this.derivativeAt() is just an easy way to get the slope for later
@@ -212,6 +222,8 @@ class LinearAutomationSegment extends AutomationSegment {
 
     getDerivatives(arr) {
         arr.fill(this.derivativeAt()); // line has the same derivative everywhere
+
+        return this;
     }
 
     getIntegrals(arr) {
@@ -223,6 +235,8 @@ class LinearAutomationSegment extends AutomationSegment {
             xd = arr[i] - this.x1;
             arr[i] = y1 * xd + slope * xd * xd / 2; // shown in (1)
         }
+
+        return this;
     }
 
     getTimeIntegrals(arr) {
@@ -240,6 +254,8 @@ class LinearAutomationSegment extends AutomationSegment {
 
         for (let i = 0; i < arr.length; i++)
             arr[i] = (Math.log(m * (arr[i] - x1) + y1) - Math.log(y1)) / m; // Derived in (1)
+
+        return this;
     }
 
     translateX(x) {
@@ -333,6 +349,8 @@ class ExponentialAutomationSegment extends AutomationSegment {
                 arr[i] = c1 * (Math.pow(base, arr[i] - x1) - 1) + y1; // derived in (1)
             }
         }
+
+        return this;
     }
 
     getDerivatives(arr) {
@@ -352,6 +370,8 @@ class ExponentialAutomationSegment extends AutomationSegment {
                 arr[i] = c1 * Math.pow(rycp, xd * (arr[i] - x1)); // derived in (1)
             }
         }
+
+        return this;
     }
 
     getIntegrals(arr) {
@@ -376,6 +396,8 @@ class ExponentialAutomationSegment extends AutomationSegment {
                 arr[i] = y1 * xfd + c1 * (-xfd + (xd * (Math.pow(rycp, 2 * xfd / xd) - 1)) / c2); // derived in (1)
             }
         }
+
+        return this;
     }
 
     getTimeIntegrals(arr) {
@@ -409,6 +431,8 @@ class ExponentialAutomationSegment extends AutomationSegment {
                 arr[i] = (Math.log((a * (Math.pow(rycp, xfd / xd) - 1) + b) / b) - xfd * log_v) / den; // derived in (1)
             }
         }
+
+        return this;
     }
 
     translateX(x) {
@@ -518,6 +542,8 @@ class QuadraticAutomationSegment extends AutomationSegment {
             let x = arr[i];
             arr[i] = (2 * (x - m) * (y1 * (x - x2) + y2 * (x-x1)) - 4 * yc * (x - x1) * (x - x2)) / xd; // derived in (1)
         }
+
+        return this;
     }
 
     getDerivatives(arr) {
@@ -533,6 +559,8 @@ class QuadraticAutomationSegment extends AutomationSegment {
         for (let i = 0; i < arr.length; i++) {
             arr[i] = (d * arr[i] + n) / (xd2); // derived in (1)
         }
+
+        return this;
     }
 
     getIntegrals(arr) {
@@ -554,6 +582,8 @@ class QuadraticAutomationSegment extends AutomationSegment {
 
             arr[i] = (d * (x * x * x - x1c) + n * (x * x - x1s) + c1 * (x - x1)) / xd; // derived in (1)
         }
+
+        return this;
     }
 
     getTimeIntegrals(arr) {
@@ -597,6 +627,8 @@ class QuadraticAutomationSegment extends AutomationSegment {
             for (let i = 0; i < arr.length; i++)
                 arr[i] = 2 * (-Math.atanh((2 * a * x + b) / sq) + c1) / sq; // positive discriminant, derived in (1)
         }
+
+        return this;
     }
 
     translateX(x) {
@@ -809,6 +841,8 @@ class Automation {
             segments[i].x1 = x; // set the starting x1 value to the x2 value of the previous segment, 0 if it doesn't exist
             x = segments[i].x2;
         }
+
+        return this;
     }
 
     getValues(arr, sorted = false) {
@@ -904,6 +938,8 @@ class Automation {
                     arr[i] = segments[mid].valueAt(arr[i]); // this is part of why this algorithm is so slow; set arr[i] to the associated value
             }
         }
+
+        return this;
     }
 
     getDerivatives(arr, sorted = false) { // Identical to the previous algorithm, except that we may want to reject corner values (TODO make decision on this with BC)
@@ -1001,6 +1037,8 @@ class Automation {
                 }
             }
         }
+
+        return this;
     }
 
     getIntegrals(arr, sorted = false) { // similar to the previous algorithms, but we need to sum up all the previous integrals
@@ -1131,6 +1169,8 @@ class Automation {
                 }
             }
         }
+
+        return this;
     }
 
     getTimeIntegrals(arr, sorted = false) { // basically identical to the previous one, just asking for timeIntegrals (which is generally gonna be a lot slower!)
@@ -1261,6 +1301,8 @@ class Automation {
                 }
             }
         }
+
+        return this;
     }
 
     valueAt(c) {
@@ -1302,10 +1344,12 @@ class Automation {
             this.segments.reverse();
 
         this.update();
+        return this;
     }
 
     scaleY(y) {
         this.segments.forEach(segment => segment.scaleY(y));
+        return this;
     }
 }
 
