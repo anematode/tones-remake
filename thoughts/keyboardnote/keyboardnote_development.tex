@@ -126,6 +126,8 @@ some(func): check whether the function is satisfied for any notes
 
 all(func): check whether the function is satisfied for all notes
 
+select(func): returns array of notes that satisfy func
+
 minX(): minimum note x value
 
 maxX(): maximum note x value
@@ -148,7 +150,7 @@ add(group, offsetX = maxX()): same as join, but must be cloned and return a new 
 
 repeat(times, repeatX = maxX()): repeat the notes, modifying the original group, with spacing of repeatX. Furthermore, an array with length $times-1$ can be passed to repeatX to change each repeat length
 
-removeIntersections(): this won't be used during actual playback, so we don't need to optimize this. This is how it should work:
+removeIntersections(): Remove all intersections between notes as specified below, modifying the original group. This won't be used during actual playback, so we don't need to optimize this. This is how it should work:
 
 Note -1. notes on diff. pitches should never occlude each other (obviously)
 

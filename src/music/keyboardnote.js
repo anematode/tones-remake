@@ -1,5 +1,14 @@
 import * as utils from "../utils.js";
 
+/*
+An abstraction of the concept of a "note" in the class KeyboardNote, and some udderly utility functions to do with pitches.
+ */
+
+/*
+Relevant .tex files: keyboardnote_development.tex (1)
+Written by anematode, 1/2/2019
+ */
+
 const isNumeric = utils.isNumeric;
 
 // Terminology
@@ -46,7 +55,7 @@ const accidental_offsets = {
     "SS": 2
 };
 
-/* Convert a note name to a numerical note */
+/* Convert a note name to a numerical note, formula given in (1) */
 function nameToNote(name) {
     //                letter   accidental  -?  number
     let groups = /^([ABCDEFG])(#|##|B|BB|S|SS)?(-)?([0-9]+)$/.exec(name.toUpperCase().trim());
@@ -282,15 +291,20 @@ for (let i = 12; i < 128; i++) {
 
 Object.freeze(KeyboardPitches);
 
+// Converts a MIDI note to its twelve TET frequency, with an opt parameter for A440
 function noteTo12TET(note, a4 = 440) {
     return a4 * Math.pow(2, (note - 69) / 12);
 }
 
+/*
+KeyboardNote is an abstraction of the concept of a note: a pitch with time, duration, velocity, etc.
+Constructed with a parameter object. Default pitch is A4. length should not be negative, but this is not enforced well
+ */
 class KeyboardNote {
     constructor(params = {}) {
         let pitch = utils.select(params.pitch, "A4");
-        if (pitch !== 0 && !parseInt(pitch)) {
-            pitch = nameToNote(pitch);
+        if (pitch !== 0 && !parseInt(pitch)) { // if it's not an integer, try parsing it as a string
+            pitch = nameToNote(pitch); // will throw if it can't figure it out (like when you pass "potato")
         } else pitch = parseInt(pitch);
 
         this.pitch = pitch;
@@ -306,21 +320,25 @@ class KeyboardNote {
         this.custom = utils.select(params.custom, {});
     }
 
+    // getter for the end of the note
     get end() {
         return this.start + this.length;
     }
 
+    // setter for the end of the note
     set end(x) {
         if (x >= this.start) {
             this.length = x - this.start;
         } else throw new Error(`Invalid end value ${x}`);
     }
 
+    // shift the note over by x (think of it as delaying the note by x units)
     translateX(x) {
         this.start += x;
         return this;
     }
 
+    // scale the note RELATIVE TO THE ORIGIN (if you just want to change the length, do note.length *= scale_factor)
     scaleX(x) {
         utils.assert(x > 0, "Can't scale note by nonpositive scaling factor");
         this.length *= x;
@@ -328,21 +346,25 @@ class KeyboardNote {
         return this;
     }
 
+    // transpose by a certain number of semitones up or down
     transpose(semitones) {
         this.pitch += semitones;
         return this;
     }
 
+    // Clone the note, shallow-copying the custom object
     clone() {
         let note = new KeyboardNote(this); // so we don't have to create an intermediate parameter object
         note.custom = {...this.custom};
         return note;
     }
 
+    // Convert this note to a JSON format
     toJSON() {
         return {p: this.pitch, s: this.start, l: this.length, v: this.vel, n: this.pan, f: this.fine, c: this.custom};
     }
 
+    // Create a note from the JSON format
     static fromJSON(json) {
         return new KeyboardNote({
             pitch: json.p,

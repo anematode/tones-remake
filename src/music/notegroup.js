@@ -1,13 +1,25 @@
 import {KeyboardNote} from "./keyboardnote.js";
 import * as utils from "../utils.js";
 
+/* A note group abstracts the concept of a sequence of notes into a relatively easily manipulatible object.
+It is constructed by passing an array of KeyboardNotes (optional), or otherwise manipulating these notes using the
+addNote, deleteNote, deleteNoteIf, translateX, scaleX, reverse, transpose, apply, snip, join, clone, add, and repeat
+functions. The first and third of these are the most useful by far. */
+
+/*
+Relevant .tex files: keyboardnote_development.tex (1)
+Written by anematode, 1/3/2019
+ */
+
+
 class KeyboardNoteGroup {
     constructor(notes = []) {
         utils.assert(Array.isArray(notes), "KeyboardNoteGroup takes an array in its constructor.");
         this.notes = notes;
-        this._sorted = false;
+        this._sorted = false; // internal variable used to keep track of whether the notes are sorted so it doesn't have to sort extra
     }
 
+    // Sort the group by starting times; this is important for most of the algorithms
     sort() {
         this.notes.sort((n1, n2) => n1.start - n2.start);
         this._sorted = true;
@@ -15,12 +27,14 @@ class KeyboardNoteGroup {
         return this;
     }
 
+    // add a note to this group
     addNote(note, clone = false) {
         this.notes.push(clone ? note.clone() : note);
         this._sorted = false;
         return this;
     }
 
+    // delete a note, given the note itself (it doesn't do a deepEquals!!)
     deleteNote(note) {
         //if (!this._sorted) {
             return this.deleteNoteIf(n => n === note);
@@ -75,6 +89,7 @@ class KeyboardNoteGroup {
         }*/
     }
 
+    // delete a note if it satisfies a certain function
     deleteNoteIf(func) {
         let deletedAny = false;
         for (let i = this.notes.length - 1; i >= 0; i--) {
@@ -88,34 +103,40 @@ class KeyboardNoteGroup {
         return deletedAny;
     }
 
+    // translate the group by x units
     translateX(x) {
         this.notes.forEach(note => note.translateX(x));
         return this;
     }
 
+    // scale the group relative to the origin
     scaleX(x) {
         utils.assert(x > 0, "Scale factor must be positive.");
         this.notes.forEach(note => note.scaleX(x));
         return this;
     }
 
+    // number of notes in the group
     get noteCount() {
         return this.notes.length;
     }
 
+    // reverse the notes in the group, putting the first note at x = 0
     reverse() {
         if (!this._sorted) this.sort();
 
         let x = this.maxX();
         this.notes.forEach(note => note.start = (x - note.end));
-        this.notes.reverse();
+        this.notes.reverse(); // the notes will be in the exact wrong order: worst case for quicksort! meh, just flip it
     }
 
+    // transpose the group by some number of semitones
     transpose(semitones) {
         this.notes.forEach(note => note.transpose(semitones));
         return this;
     }
 
+    // apply a function to all notes
     apply(func) {
         this.notes.forEach(func);
 
@@ -124,19 +145,28 @@ class KeyboardNoteGroup {
         return this;
     }
 
+    // test whether a function is true for any notes
     some(func) {
         return this.notes.some(func);
     }
 
+    // test whether a function is true for all notes
     all(func) {
         return this.notes.every(func);
     }
 
+    // get all notes which satisfy the function
+    select(func) {
+        return this.notes.filter(func);
+    }
+
+    // minimum x value of the group
     minX() {
         if (!this._sorted) this.sort();
         return this.noteCount > 0 ? this.notes[0].start : NaN
     }
 
+    // maximum x value of the group
     maxX() {
         if (!this._sorted) this.sort();
         let maxX = -Infinity;
@@ -150,10 +180,12 @@ class KeyboardNoteGroup {
         return maxX === -Infinity ? NaN : maxX;
     }
 
+    // total length of the group (min to max)
     length() {
         return this.maxX() - this.minX();
     }
 
+    // minimum pitch (lowest note)
     minPitch() {
         let minP = Infinity;
         for (let i = 0; i < this.notes.length; i++) {
@@ -164,6 +196,7 @@ class KeyboardNoteGroup {
         return minP === Infinity ? NaN : minP;
     }
 
+    // maximum pitch (highest note)
     maxPitch() {
         let maxP = -Infinity;
         for (let i = 0; i < this.notes.length; i++) {
@@ -174,6 +207,7 @@ class KeyboardNoteGroup {
         return maxP === -Infinity ? NaN : maxP;
     }
 
+    // generator returning notes between start_x and end_x, trimming them if necessary
     * generateNotes(start_x = -Infinity, end_x = Infinity) {
         utils.assert(start_x < end_x, "start_x must be less than end_x");
 
@@ -208,6 +242,7 @@ class KeyboardNoteGroup {
         }
     }
 
+    // returns a new group containing a portion (from start_x to end_x) of the group
     snip(start_x = -Infinity, end_x = Infinity) {
         utils.assert(start_x < end_x, "start_x must be less than end_x");
 
@@ -244,7 +279,9 @@ class KeyboardNoteGroup {
         return group;
     }
 
+    // join another group to this one at x = offsetX
     join(group, clone=true, offsetX = this.maxX()) {
+        // if clone is true, then we clone each of the new elements, otherwise we just take and add them directly
         group.notes.forEach(note => {
             if (clone)
                 note = note.clone();
@@ -256,12 +293,14 @@ class KeyboardNoteGroup {
         return this;
     }
 
+    // clone this NoteGroup, notes and all
     clone() {
         let group = new KeyboardNoteGroup(this.notes.map(note => note.clone()));
         group._sorted = this._sorted;
         return group;
     }
 
+    // same as join, but returns a separate, new group
     add(group, offsetX = this.maxX()) {
         let ret_group = this.clone();
 
@@ -270,6 +309,8 @@ class KeyboardNoteGroup {
         return ret_group;
     }
 
+    // repeat this notegroup "times" number of times with a spacing of repeatX. repeatX can also be an array with
+    // length times - 1, specifying the spacing at each repeat
     repeat(times, repeatX = this.maxX()) {
         let isArr = Array.isArray(repeatX);
 
@@ -290,15 +331,20 @@ class KeyboardNoteGroup {
         return this;
     }
 
+    // convert the note group to a JSON format
     toJSON() {
         return {n: this.notes.map(n => n.toJSON()), s: this._sorted};
     }
 
+    // create a note group from the JSON format
     static fromJSON(json) {
         let group = new KeyboardNoteGroup(json.n.map(noteJN => KeyboardNote.fromJSON(noteJN)));
         group._sorted = json.s;
         return group;
     }
+
+    // remove intersecting notes from the NoteGroup, first choosing the longest notes of notes that start at the exact
+    // same time and have the same pitch, then trimming intersecting notes of the same pitch
 
     removeIntersections() {
         if (!this._sorted) this.sort();
@@ -311,33 +357,33 @@ class KeyboardNoteGroup {
         let extraEgg = false;
         let pitches = {};
 
-        for (let i = 0; i < notes.length || (extraEgg = !extraEgg); i++) {
+        for (let i = 0; i < notes.length || (extraEgg = !extraEgg); i++) { // extraEgg allows us to do a special loop at i = notes.length to take care of the last batch of start values
             let start = extraEgg ? Infinity : notes[i].start;
 
-            if (start !== prev_start) {
+            if (start !== prev_start) { // whenever the start value changes
                 prev_start = start;
                 dict = {};
                 let needs_assessment = {};
 
-                for (let j = ps_index; j < i; j++) {
+                for (let j = ps_index; j < i; j++) { // this range of indices all have the same start value, so any coincident notes will be here
                     let note = notes[j];
 
-                    if (dict[note.pitch] !== undefined) {
+                    if (dict[note.pitch] !== undefined) { // keeps track of whether a pitch has been seen before here and makes a list of all the pitches in this region
                         dict[note.pitch].push(j);
-                        needs_assessment[note.pitch] = true;
+                        needs_assessment[note.pitch] = true; // this only happens if there's more than one of a pitch
                     } else {
                         dict[note.pitch] = [j];
                     }
                 }
 
-                for (let pitch in needs_assessment) {
+                for (let pitch in needs_assessment) { // for each pitch that has at least one duplicate...
                     if (!needs_assessment.hasOwnProperty(pitch)) continue;
 
                     let notes_p = dict[pitch];
                     let keep_l;
                     let max_length = -Infinity;
 
-                    for (let l = 0; l < notes_p.length; l++) {
+                    for (let l = 0; l < notes_p.length; l++) { // find the relevant note with longest length; store its index's index in keep_l
                         let length = notes[notes_p[l]].length;
                         if (length > max_length) {
                             max_length = length;
@@ -346,9 +392,9 @@ class KeyboardNoteGroup {
                     }
 
                     for (let l = 0; l < notes_p.length; l++) {
-                        if (l === keep_l) { // this note is remaining, let's keep track of it for step 2
+                        if (l === keep_l) { // this note is going to remain (since it's longest), let's keep track of it for step 2
                             let index = notes_p[l];
-                            let pitch = notes[index].pitch;
+                            let pitch = notes[index].pitch; // keep track for the whole group: pitches have notes when?
 
                             if (pitches[pitch] !== undefined)
                                 pitches[pitch].push(index);
@@ -356,7 +402,8 @@ class KeyboardNoteGroup {
                                 pitches[pitch] = [index];
                             continue;
                         }
-                        notes[notes_p[l]] = null;
+
+                        notes[notes_p[l]] = null; // set discarded notes to null to be cleared later (don't splice them now, because that will mess up the indices)
                     }
                 }
 
@@ -364,15 +411,15 @@ class KeyboardNoteGroup {
                     if (!dict.hasOwnProperty(pitch)) continue;
                     let notes = dict[pitch];
 
-                    if (notes.length === 1) { // not assessed
-                        if (pitches[pitch] !== undefined)
+                    if (notes.length === 1) { // not assessed previously, because there aren't coincident notes of this pitch in this range
+                        if (pitches[pitch] !== undefined) // again, keep track of the notes for step 2
                             pitches[pitch].push(notes[0]);
                         else
                             pitches[pitch] = [notes[0]];
                     }
                 }
 
-                if (extraEgg)
+                if (extraEgg) // not necessary but gives me peace of mind
                     break;
 
                 ps_index = i;
@@ -381,19 +428,20 @@ class KeyboardNoteGroup {
 
         // step 2: go through each pitch and trim them
 
-        for (let pitch in pitches) {
+        for (let pitch in pitches) { // for each pitch that exists in the note group...
             if (!pitches.hasOwnProperty(pitch)) continue;
             let note_indices = pitches[pitch];
 
-            if (note_indices.length <= 1) continue;
+            if (note_indices.length <= 1) continue; // if there's only one of that note, there won't be intersections, so continue on your merry way
 
             let prev_end = -Infinity;
 
             for (let i = 0; i < note_indices.length; i++) {
-                let note = notes[note_indices[i]];
+                let note = notes[note_indices[i]]; // for each note with that pitch...
 
-                if (note.start < prev_end) {
-                    notes[note_indices[i - 1]].end = note.start; // note that i >= 1 is guaranteed because nothing is smaller than -Infinity
+                if (note.start < prev_end) { // if the start of this note lies in the range of the previous note... (note we use a strict comparison)
+                    notes[note_indices[i - 1]].end = note.start; // trim the previous note to make its end = this note's start
+                    // note that i >= 1 is guaranteed because nothing is smaller than -Infinity
                 }
 
                 prev_end = note.end;
@@ -406,8 +454,6 @@ class KeyboardNoteGroup {
 
         return this;
     }
-
-    // TODO add intersection detection algorithm
 }
 
 export {KeyboardNoteGroup};
