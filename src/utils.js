@@ -156,6 +156,63 @@ function isTypedArray(arr) {
     return ArrayBuffer.isView(arr) && (!(arr instanceof DataView));
 }
 
+let loading = {};
+
+function markLoading(id) {
+    loading[id] = {progress: 0, comments: []};
+}
+
+function commentLoading(id, comment) {
+    loading[id].comments.push(comment);
+}
+
+function markLoadingProgress(id, progress) { // 1 is finished, 0 is just started
+    assert(0 <= progress && progress <= 1, "Progress update must be between 0 and 1");
+    loading[id].progress = progress;
+
+    if (totalLoadingProgress() === 1 && !loaded) {
+        loaded = true;
+        callLoadedEventListeners();
+    } else {
+        loaded = false;
+    }
+}
+
+let loaded = false;
+
+function totalLoadingProgress() {
+    let sum = 0;
+    let count = 0;
+
+    for (let key in loading) {
+        if (loading.hasOwnProperty(key)) {
+            sum += loading[key].progress;
+            count++;
+        }
+    }
+
+    return count === 0 ? 1 : sum / count;
+}
+
+let loadedEventListeners = [];
+
+function addLoadedEventListener(listener) {
+    if (loaded)
+        listener();
+
+    loadedEventListeners.push(listener);
+}
+
+function removeLoadedEventListener(listener) {
+    let index = loadedEventListeners.indexOf(listener);
+    if (index > 1)
+        loadedEventListeners.splice(index, 1);
+}
+
+function callLoadedEventListeners() {
+    loadedEventListeners.forEach(f => f());
+}
+
 export {
     equal,
     clamp,
@@ -172,5 +229,11 @@ export {
     inRange,
     inStrictRange,
     isArray,
-    isTypedArray
+    isTypedArray,
+    markLoading,
+    commentLoading,
+    markLoadingProgress,
+    totalLoadingProgress,
+    addLoadedEventListener,
+    removeLoadedEventListener
 };

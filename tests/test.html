@@ -7,13 +7,24 @@
 <body>
 <script src="../build/tones.js"></script>
 <script>
-    let system = new TONES.System();
+    let nodes;
+    TONES.utils.addLoadedEventListener(() => {
+        console.log("loaded");
 
-    let inst = new TONES.Instrument({system});
-    let osc = system.context.createOscillator();
+        let system = new TONES.System();
 
-    osc.connect(system.exit.entry);
-    osc.start();
+        let inst = new TONES.Instrument({system});
+        let osc = system.context.createOscillator();
+
+        let m = 200;
+
+        nodes = [...Array(m).keys()].map(() => new AudioWorkletNode(system.context, "test"));
+        TONES.chainNodes(nodes);
+
+        osc.connect(nodes[0]);
+        nodes[m-1].connect(system.entry.entry);
+        osc.start();
+    });
 </script>
 </body>
 </html>
