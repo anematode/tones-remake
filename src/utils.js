@@ -37,34 +37,6 @@ function getID() {
     return ++ID_INDEX;
 }
 
-/*class CancellableTimeout {
-    constructor(func, secs, absoluteAudioCtxTime = false) {
-        this.end_time = (absoluteAudioCtxTime ? 0 : audio.Context.currentTime) + secs;
-
-        let f_c = () => {
-            if (audio.Context.currentTime >= this.end_time) {
-                this._ended = true;
-                func();
-            } else {
-                this.timeout = setTimeout(f_c, 2000/3 * (this.end_time - audio.Context.currentTime));
-            }
-        };
-
-        this.timeout = setTimeout(f_c, 2000 / 3 * (this.end_time - audio.Context.currentTime));
-
-        this._ended = false;
-    }
-
-    cancel() {
-        clearTimeout(this.timeout);
-        this._ended = true;
-    }
-
-    ended() {
-        return this._ended;
-    }
-}*/
-
 function assert(test, message = "Assertion error") {
     if (!test) {
         throw new Error(message);
